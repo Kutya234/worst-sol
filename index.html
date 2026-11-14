@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worst Sol</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geologica:wght@300..800&family=Martian+Mono:wdth,wght@75..112.5,300..700&display=swap">
+<style>
+:root{
+  /* Layout: a field-manual sheet. Left-aligned on one wide column; the map opens the page,
+     a dark caution-and-warning strip stays pinned, and every section below reacts to it. */
+  --paper:#ECEEE9;      /* cool drafting paper */
+  --sheet:#F8F9F5;      /* panels */
+  --ink:#141A22;        /* blue-black ink */
+  --ink-2:#4D5661;
+  --ink-3:#737C86;
+  --rule:#C6CAC1;
+  --rule-soft:#DDE0D8;
+  --plan:#2A78D6;       /* the blue of a Martian sunset: reach when all goes to plan */
+  --go:#0CA30C; --caution:#FAB219; --serious:#EC835A; --nogo:#D03B3B;
+  --lamp-amber:#FFB81F; --lamp-red:#F26257; --lamp-blue:#9CC8FF; --lamp-violet:#CDB1FF;
+  --display:'Geologica','Segoe UI',system-ui,-apple-system,sans-serif;
+  --data:'Martian Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+body.storm{ --paper:#E2D7C4; --sheet:#F1E9DA; --rule:#C8BAA1; --rule-soft:#D9CDB7; }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%; scroll-behavior:smooth}
+body{margin:0; background:var(--paper); color:var(--ink); font:400 16px/1.5 var(--display); transition:background-color .7s ease}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} body, .haze, .fill{transition:none !important} }
+.wrap{max-width:1180px; margin-inline:auto; padding-inline:20px}
+button, select, input{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--plan); outline-offset:2px}
+a{color:inherit; text-underline-offset:3px}
+.num{font-family:var(--data); font-stretch:87.5%; font-variant-numeric:tabular-nums}
+[hidden]{display:none !important}
+
+/* ---------- masthead ---------- */
+.mast{display:flex; justify-content:space-between; align-items:center; gap:16px; padding-block:14px; border-bottom:2px solid var(--ink)}
+.brand{display:flex; align-items:baseline; gap:6px 14px; flex-wrap:wrap}
+.brand b{font-weight:800; font-size:20px; letter-spacing:-.015em}
+.brand span{color:var(--ink-2); font-size:14px}
+.lang{display:flex; border:1px solid var(--ink); border-radius:4px; overflow:hidden; flex:none}
+.lang button{font:500 12px var(--data); padding:7px 11px; background:transparent; border:0; cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink); color:var(--sheet)}
+
+/* ---------- opener ---------- */
+.hero{padding-block:34px 30px}
+.hero-top{display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:20px 40px; align-items:end; margin-bottom:26px}
+h1{font-weight:800; font-size:clamp(34px,5.4vw,66px); line-height:1.0; letter-spacing:-.03em; margin:0; text-wrap:balance}
+.lead{font-size:18px; line-height:1.5; color:var(--ink-2); margin:0; max-width:50ch}
+@media (max-width:860px){ .hero-top{grid-template-columns:1fr} }
+
+.map-tools{display:flex; justify-content:space-between; align-items:center; gap:10px 24px; flex-wrap:wrap; margin-bottom:10px}
+.seg{display:inline-flex; border:1px solid var(--ink); border-radius:4px; overflow:hidden; background:var(--sheet)}
+.seg button{background:transparent; border:0; padding:7px 13px; font-size:14px; cursor:pointer; border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink); color:var(--sheet)}
+.tool-label{font-size:14px; color:var(--ink-2); margin-right:8px}
+.key{display:flex; gap:8px 20px; flex-wrap:wrap; font-size:13.5px; color:var(--ink-2)}
+.key span{display:inline-flex; align-items:center; gap:7px}
+.glyph{width:12px; height:12px; flex:none; display:inline-block}
+.glyph.ground{background:var(--ink); border-radius:50%; box-shadow:0 0 0 2px #fff}
+.glyph.orbital{background:#fff; border:2.5px solid var(--ink); transform:rotate(45deg) scale(.82)}
+
+.map-scroll{overflow-x:auto; border:1.5px solid var(--ink); background:#B4AE9F}
+.map{position:relative; aspect-ratio:2/1; min-width:660px; overflow:hidden}
+.map > canvas, .map > svg, .map > .tiles, .map > .haze{position:absolute; inset:0; width:100%; height:100%; display:block}
+/* 8 x 4 tiles of Trek zoom level 2. The selector has to outrank the display:block set on the map's layers above. */
+.map > .tiles{display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(4,1fr)}
+.map > .tiles[hidden]{display:none}
+.tiles img{width:100%; height:100%; min-width:0; min-height:0; display:block}
+.haze{background:rgb(150 106 62 / 0); transition:background-color .8s ease; pointer-events:none}
+.haze-note{position:absolute; left:12px; bottom:10px; font:500 12px var(--data); color:#fff; background:rgb(40 26 14 / .72); padding:4px 8px; border-radius:3px; pointer-events:none}
+.map-foot{display:flex; justify-content:space-between; gap:8px 24px; flex-wrap:wrap; font-size:13px; color:var(--ink-2); margin-top:8px; line-height:1.4}
+.map-foot p{margin:0; max-width:80ch}
+.legend-bar{display:inline-flex; align-items:center; gap:8px; font-size:13px}
+.legend-bar i{display:inline-block; width:120px; height:10px; border:1px solid var(--ink-3)}
+.legend-sw{display:inline-flex; align-items:center; gap:7px; margin-right:16px}
+.legend-sw i{display:inline-block; width:22px; height:12px; border:1px solid var(--ink-3)}
+
+.grat{stroke:rgb(20 26 34 / .22); stroke-width:.7; fill:none}
+.grat-eq{stroke:rgb(20 26 34 / .4)}
+.grat-t{font:500 10.5px var(--data); fill:rgb(20 26 34 / .7); paint-order:stroke; stroke:rgb(255 255 255 / .6); stroke-width:2.5px}
+.mk{cursor:pointer; outline:none}
+.mk .hit{fill:transparent}
+.mk .dot{fill:var(--ink); stroke:#fff; stroke-width:2}
+.mk.orbital .dot{fill:#fff; stroke:var(--ink); stroke-width:2.5}
+.mk .ring{fill:none; stroke:var(--ink); stroke-width:1.6; opacity:0}
+.mk.sel .ring{opacity:1}
+.mk:hover .ring{opacity:.55}
+.mk:focus-visible .ring{opacity:1; stroke:var(--plan); stroke-width:3}
+.mk text{font:650 13.5px var(--display); fill:var(--ink); paint-order:stroke; stroke:rgb(255 255 255 / .86); stroke-width:3.6px; stroke-linejoin:round}
+.mk.mine text{text-decoration:underline}
+.sun-t{font:500 10.5px var(--data); fill:#fff; paint-order:stroke; stroke:rgb(10 14 24 / .75); stroke-width:3px}
+@media (max-width:760px){ .mk text{display:none} }
+
+.vote-row{display:flex; gap:10px 20px; align-items:center; flex-wrap:wrap; margin-top:18px}
+.vote-row strong{font-weight:650; font-size:17px}
+.linkbtn{background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; text-underline-offset:3px; color:var(--ink-2); font-size:14.5px}
+.chips{display:grid; grid-template-columns:repeat(auto-fill,minmax(236px,1fr)); gap:8px; margin-top:12px}
+.chip{display:grid; grid-template-columns:14px 1fr; gap:3px 10px; align-items:start; align-content:start; text-align:left; padding:11px 12px; background:var(--sheet); border:1px solid var(--rule); border-radius:6px; cursor:pointer}
+.chip .glyph{margin-top:6px}
+.chip b{font-weight:650; font-size:15.5px; line-height:1.3}
+.chip span.tz{grid-column:2; font-size:13.5px; color:var(--ink-2); line-height:1.35}
+.chip:hover{border-color:var(--ink-3)}
+.chip[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink)}
+.tag{display:inline-block; font:500 10.5px var(--data); padding:2px 6px; border-radius:3px; background:var(--ink); color:var(--sheet); margin-left:6px; vertical-align:2px; white-space:nowrap}
+.reveal{margin-top:14px; padding:16px 20px; background:var(--ink); color:#F1F3EE; border-radius:6px; display:flex; gap:14px 28px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+.reveal p{margin:0; font-size:18px; line-height:1.4; max-width:62ch}
+.reveal p b{font-weight:700}
+.btn{display:inline-block; background:var(--sheet); color:var(--ink); border:1px solid var(--ink); border-radius:4px; padding:9px 14px; font-weight:600; font-size:14.5px; text-decoration:none; cursor:pointer}
+.btn.ghost{background:transparent}
+.reveal .btn{border-color:#F1F3EE}
+
+/* ---------- caution-and-warning strip ---------- */
+.console{position:sticky; top:0; z-index:20; background:var(--ink); color:#E6EAE4}
+.console-in{display:flex; gap:12px 20px; align-items:flex-start; flex-wrap:wrap; padding-block:11px}
+.con-block{display:flex; flex-direction:column; gap:5px}
+.con-label{font:500 11px var(--data); color:#98A2AC}
+.con-site{flex:0 1 210px; min-width:170px}
+.console select{background:#1D242D; color:#E6EAE4; border:1px solid #3A434E; border-radius:4px; padding:7px 8px; font-size:14px; max-width:100%}
+.lamps{display:flex; gap:8px; flex-wrap:wrap; flex:3 1 520px}
+.lamp-wrap{display:flex; flex-direction:column; gap:5px; flex:1 1 138px; min-width:132px}
+.lamp{appearance:none; text-align:left; border:1px solid #3A434E; background:#1D242D; color:#98A2AC; border-radius:4px; padding:7px 10px 8px; cursor:pointer; display:flex; flex-direction:column; gap:0; min-height:50px; position:relative}
+.lamp{flex:1}
+.lamp b{font-weight:700; font-size:14px; padding-right:12px; color:#DCE1E6; line-height:1.25}
+.lamp span{font-size:12px; line-height:1.3}
+.lamp::after{content:''; position:absolute; right:9px; top:9px; width:8px; height:8px; border-radius:50%; background:#3A434E}
+.lamp:hover{border-color:#6A7480}
+.lamp[aria-pressed="true"], .lamp[aria-pressed="true"] b{color:#191204}
+.lamp[aria-pressed="true"]::after{background:#191204}
+.lamp-amber[aria-pressed="true"]{background:var(--lamp-amber); border-color:var(--lamp-amber)}
+.lamp-red[aria-pressed="true"]{background:var(--lamp-red); border-color:var(--lamp-red)}
+.lamp-blue[aria-pressed="true"]{background:var(--lamp-blue); border-color:var(--lamp-blue)}
+.lamp-violet[aria-pressed="true"]{background:var(--lamp-violet); border-color:var(--lamp-violet)}
+.lamp-sub{display:flex; gap:6px; align-items:center; min-height:28px; font-size:12px; color:#98A2AC}
+.lamp-sub select{padding:4px 6px; font-size:12.5px; width:100%}
+.lamp-sub input[type=range]{flex:1; min-width:60px; accent-color:var(--lamp-blue)}
+.lamp-sub button, .con-season button{background:#1D242D; color:#DCE1E6; border:1px solid #3A434E; border-radius:4px; padding:4px 8px; font-size:12.5px; cursor:pointer; white-space:nowrap}
+.lamp-sub button:hover, .con-season button:hover{border-color:#6A7480}
+.con-season{flex:1 1 230px; min-width:210px}
+.con-season .row{display:flex; gap:8px; align-items:center}
+.con-season input[type=range]{flex:1; min-width:80px; accent-color:#DCE1E6}
+.con-season output{font:500 12px var(--data); color:#DCE1E6; display:block; min-height:18px}
+@media (max-width:900px){ .console{position:static} }
+
+/* ---------- sections ---------- */
+.sec{padding-block:44px 40px; border-top:1px solid var(--rule); scroll-margin-top:140px}
+.sec:first-of-type{border-top:0}
+.sec-head{display:flex; gap:14px; align-items:flex-start; margin-bottom:22px}
+.sec-num{font:600 14px var(--data); border:1.5px solid var(--ink); border-radius:50%; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; flex:none; margin-top:3px}
+h2{font-weight:750; font-size:clamp(25px,3.1vw,36px); letter-spacing:-.022em; line-height:1.1; margin:0; text-wrap:balance}
+h3{font-weight:700; font-size:18px; letter-spacing:-.01em; line-height:1.25; margin:0 0 8px}
+.sec-sub{margin:7px 0 0; color:var(--ink-2); max-width:72ch}
+.cols{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px}
+.cols.wide-left{grid-template-columns:minmax(0,11fr) minmax(0,9fr)}
+@media (max-width:900px){ .cols, .cols.wide-left{grid-template-columns:1fr} }
+.panel{background:var(--sheet); border:1px solid var(--rule); border-radius:8px; padding:18px 20px}
+.stack{display:flex; flex-direction:column; gap:16px}
+.muted{color:var(--ink-2)}
+.small{font-size:13.5px; line-height:1.45}
+
+.facts{width:100%; border-collapse:collapse}
+.facts th{font-weight:450; color:var(--ink-2); text-align:left; padding:9px 14px 9px 0; vertical-align:top; width:36%; font-size:14.5px}
+.facts td{padding:9px 0; vertical-align:top}
+.facts tr + tr th, .facts tr + tr td{border-top:1px solid var(--rule-soft)}
+.facts .v{font-weight:600}
+.src{display:block; font:400 11.5px/1.4 var(--data); font-stretch:87.5%; color:var(--ink-3); margin-top:3px}
+.changed{background:linear-gradient(transparent 55%, rgb(250 178 25 / .45) 55%)}
+
+.lesson{border-left:4px solid var(--ink); padding:2px 0 2px 16px}
+.lesson p{margin:0; max-width:60ch}
+.scorehead{display:flex; align-items:baseline; gap:8px 18px; flex-wrap:wrap; margin-bottom:12px}
+.scorehead .big{font:600 34px/1 var(--data); font-stretch:87.5%; letter-spacing:-.02em}
+.bars{display:grid; gap:9px}
+.bar{display:grid; grid-template-columns:minmax(120px,170px) 1fr 40px; gap:10px; align-items:center; font-size:14.5px}
+.track{height:10px; background:var(--rule-soft); border-radius:0 4px 4px 0}
+.fill{height:100%; background:var(--ink-2); border-radius:0 4px 4px 0; min-width:2px; transition:width .4s ease}
+.bar.weak .fill{background:var(--nogo)}
+.bar .val{text-align:right; font:500 13px var(--data)}
+.links{display:flex; gap:8px 18px; flex-wrap:wrap; font-size:14.5px}
+
+/* ---------- Marswalk ---------- */
+.walkmap{width:100%; height:auto; display:block; max-width:620px; margin-inline:auto}
+.wl-tools{display:flex; align-items:center; gap:4px 8px; margin-bottom:12px; flex-wrap:wrap}
+.walkbox{position:relative; max-width:620px; margin-inline:auto; aspect-ratio:1; border:1.5px solid var(--ink); overflow:hidden; background:#E9E2D0}
+.walkbox canvas, .walkbox svg{position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; margin:0}
+.w-scale rect{fill:rgb(248 249 245 / .88)}
+.w-scale path{fill:none; stroke:var(--ink); stroke-width:1.6}
+.w-scale text, .w-north text{font:600 11px var(--data); fill:var(--ink)}
+.w-north path{fill:var(--ink); stroke:var(--sheet); stroke-width:1.5; stroke-linejoin:round}
+.w-north text{paint-order:stroke; stroke:var(--sheet); stroke-width:3px}
+.w-route-case{fill:none; stroke:var(--sheet); stroke-width:6.5; stroke-linecap:round; stroke-linejoin:round}
+.w-route{fill:none; stroke:var(--ink); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round}
+@media (max-width:600px){ .walkmap .w-t{font-size:19px; stroke-width:5px} .walkmap .w-t.small{font-size:17px} .w-scale text, .w-north text{font-size:16px} }
+.terr-key{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:13px; color:var(--ink-2); margin-top:12px}
+.terr-key span{display:inline-flex; align-items:center; gap:7px}
+.terr-key i{width:16px; height:12px; border:1px solid var(--ink-3); flex:none}
+.terr-key .legend-bar i{width:120px; height:10px}
+.w-ring{fill:none; stroke:rgb(20 26 34 / .2); stroke-width:1}
+.w-ringt{font:500 10.5px var(--data); fill:var(--ink-3)}
+.w-plan{fill:rgb(250 178 25 / .13); stroke:var(--plan); stroke-width:2; stroke-dasharray:7 5}
+.w-safe{fill:rgb(12 163 12 / .14); stroke:var(--go); stroke-width:2.2}
+.w-base{fill:var(--ink); stroke:var(--sheet); stroke-width:2}
+.w-t{font:600 12.5px var(--display); fill:var(--ink); paint-order:stroke; stroke:var(--sheet); stroke-width:3.5px; stroke-linejoin:round}
+.w-t.small{font-weight:450; fill:var(--ink-2)}
+.w-tg{cursor:pointer; outline:none}
+.w-tg .halo{fill:none; stroke:var(--ink); stroke-width:1.6; opacity:0}
+.w-tg.sel .halo{opacity:1}
+.w-tg:focus-visible .halo{opacity:1; stroke:var(--plan); stroke-width:3}
+.w-path{stroke:var(--ink); stroke-width:1.4; stroke-dasharray:2 4; fill:none}
+.w-ghost{fill:none; stroke:var(--ink-2); stroke-width:1.5}
+.w-leg{font:450 12px var(--display); fill:var(--ink-2)}
+.walk-key{display:grid; gap:6px; font-size:13.5px; color:var(--ink-2); margin-top:10px}
+.walk-key span{display:flex; gap:9px; align-items:flex-start}
+.walk-key i{flex:none; width:24px; height:0; margin-top:9px; border-top:2px solid var(--go)}
+.walk-key i.plan{border-top:2px dashed var(--plan)}
+
+.vd{display:inline-flex; align-items:center; gap:6px; font-weight:650; font-size:12.5px; padding:3px 9px 3px 7px; border-radius:999px; border:1px solid var(--rule); background:#fff; white-space:nowrap; color:var(--ink)}
+.vd i{width:10px; height:10px; flex:none}
+.vd.go i{background:var(--go); border-radius:50%}
+.vd.risk i{background:var(--caution); clip-path:polygon(50% 0,100% 100%,0 100%); outline:0}
+.vd.nogo i{background:var(--nogo); clip-path:polygon(20% 0,50% 30%,80% 0,100% 20%,70% 50%,100% 80%,80% 100%,50% 70%,20% 100%,0 80%,30% 50%,0 20%)}
+.tgs{display:grid; gap:7px}
+.tg{display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:center; padding:9px 12px; border:1px solid var(--rule); border-radius:6px; background:var(--sheet); cursor:pointer; text-align:left; width:100%}
+.tg b{font-weight:650; font-size:15px}
+.tg small{grid-column:1; color:var(--ink-2); font-size:13px}
+.tg .vd{grid-row:1 / span 2; grid-column:2}
+.tg:hover{border-color:var(--ink-3)}
+.tg[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink)}
+.detail h3{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.tl{position:relative; height:26px; margin:26px 0 30px}
+.tl-track{position:absolute; inset:0; background:var(--rule-soft); border-radius:3px}
+.tl-seg{position:absolute; top:0; bottom:0; display:flex; align-items:center; justify-content:center; font:500 11px var(--data); color:#fff; overflow:hidden; white-space:nowrap; box-shadow:inset -2px 0 0 var(--sheet)}
+.tl-seg.out, .tl-seg.back{background:var(--plan)}
+.tl-seg.work{background:var(--ink)}
+.tl-seg.storm{background:repeating-linear-gradient(135deg,var(--plan) 0 6px,#6A9FE0 6px 10px)}
+.tl-tick{position:absolute; top:-6px; bottom:-6px; width:0; border-left:2px solid var(--ink)}
+.tl-tick.res{border-left-style:dashed; border-left-color:var(--nogo)}
+.tl-tick span{position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; font:500 10.5px var(--data); color:var(--ink-2)}
+.tl-tick .up{bottom:100%; margin-bottom:2px}
+.tl-tick .dn{top:100%; margin-top:2px}
+.tl-tick.far span{left:auto; right:4px; transform:none}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; font-size:14.5px; margin:0}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0; font-weight:600}
+.verdict-line{margin:12px 0 0; padding:10px 12px; border-radius:6px; background:#fff; border:1px solid var(--rule); font-size:15px}
+.science{margin-top:14px; padding-top:12px; border-top:1px solid var(--rule-soft)}
+.science p{margin:0}
+.pre{display:grid; gap:10px}
+.pre article{padding:12px 14px; border-radius:6px; border:1px solid var(--rule); background:var(--sheet); border-left-width:5px}
+.pre article.amber{border-left-color:var(--lamp-amber)}
+.pre article.red{border-left-color:var(--lamp-red)}
+.pre article.blue{border-left-color:#5FA3EE}
+.pre article.violet{border-left-color:#A77BEA}
+.pre h3{font-size:15.5px; margin-bottom:4px}
+.pre p{margin:0; font-size:14.5px; line-height:1.45}
+
+/* ---------- one sol ---------- */
+.sol-ctrl{display:flex; gap:12px 16px; align-items:center; flex-wrap:wrap; margin-bottom:12px}
+.sol-ctrl input[type=range]{flex:1 1 240px; accent-color:var(--ink)}
+.readout{display:flex; gap:6px 8px; flex-wrap:wrap; margin-bottom:10px}
+.readout span{font:500 12.5px var(--data); font-stretch:87.5%; background:var(--sheet); border:1px solid var(--rule); border-radius:4px; padding:5px 9px; white-space:nowrap}
+.readout span b{font-weight:600}
+.logline{font-size:17px; line-height:1.45; margin:0 0 14px; max-width:78ch; min-height:3em}
+.chart-scroll{overflow-x:auto}
+.solchart{display:block; width:100%; min-width:760px; height:auto}
+.c-title{font:650 12.5px var(--display); fill:var(--ink)}
+.c-axis{font:450 10.5px var(--data); fill:var(--ink-3)}
+.c-grid{stroke:var(--rule-soft); stroke-width:1}
+.c-base{stroke:var(--rule); stroke-width:1}
+.c-line{fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.c-lab{font:500 11.5px var(--display); fill:var(--ink-2)}
+.c-play{stroke:var(--ink); stroke-width:1.2}
+.c-dot{stroke:var(--sheet); stroke-width:2}
+.crew-t{font:500 11px var(--display)}
+.proj{display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:20px; align-items:center; margin-top:18px}
+@media (max-width:900px){ .proj{grid-template-columns:1fr} }
+.proj p{margin:0; font-size:17px; line-height:1.45}
+.projchart{display:block; width:100%; height:auto}
+
+/* ---------- crowd ---------- */
+.locked{padding:26px 22px; text-align:left}
+.locked p{margin:0 0 12px; font-size:18px; max-width:56ch}
+.table-scroll{overflow-x:auto}
+.rank{width:100%; border-collapse:collapse; min-width:720px}
+.rank th{font-weight:500; font-size:12.5px; color:var(--ink-2); text-align:left; padding:8px 10px; border-bottom:1.5px solid var(--ink); white-space:nowrap}
+.rank td{padding:9px 10px; border-bottom:1px solid var(--rule-soft); vertical-align:middle; font-size:14.5px}
+.rank tr.rowbtn{cursor:pointer}
+.rank tr.rowbtn:hover td{background:rgb(255 255 255 / .6)}
+.rank tr.cur td{background:#fff}
+.rank .n{font:500 13px var(--data); color:var(--ink-2); width:34px}
+.rank .site b{font-weight:650}
+.rank .site small{display:block; color:var(--ink-2); font-size:12.5px}
+.hbar{display:grid; grid-template-columns:1fr 34px; gap:8px; align-items:center; min-width:150px}
+.hbar .track{height:9px}
+.hbar .fill.votes{background:var(--plan)}
+.hbar span{font:500 12.5px var(--data); text-align:right}
+.delta{font:500 12.5px var(--data); white-space:nowrap}
+.crowd-sum{font-size:19px; line-height:1.4; margin:0 0 16px; max-width:70ch}
+.crowd-actions{display:flex; gap:10px 14px; flex-wrap:wrap; align-items:center; margin-top:16px}
+
+/* ---------- method ---------- */
+.three{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px}
+@media (max-width:900px){ .three{grid-template-columns:1fr} }
+.three p{margin:0; font-size:14.5px; line-height:1.5}
+.assume{columns:2; column-gap:32px; padding-left:18px; margin:0; font-size:14.5px}
+.assume li{break-inside:avoid; margin-bottom:5px}
+@media (max-width:700px){ .assume{columns:1} }
+.srclist{padding-left:18px; margin:0; font-size:14.5px}
+.srclist li{margin-bottom:5px}
+footer{border-top:2px solid var(--ink); padding-block:18px 40px; font-size:13.5px; color:var(--ink-2)}
+footer p{margin:0; max-width:90ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div class="brand"><b data-i18n="brand"></b><span data-i18n="brand_sub"></span></div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" id="langRu" aria-pressed="false">RU</button>
+      <button type="button" id="langEn" aria-pressed="false">EN</button>
+    </div>
+  </header>
+
+  <main>
+  <section class="hero" id="choose">
+    <div class="hero-top">
+      <h1 data-i18n="h1"></h1>
+      <p class="lead" data-i18n="lead"></p>
+    </div>
+
+    <div class="map-tools">
+      <div>
+        <span class="tool-label" data-i18n="layers"></span>
+        <span class="seg" role="group" id="layerSeg">
+          <button type="button" data-layer="relief" aria-pressed="true" data-i18n="layer_relief"></button>
+          <button type="button" data-layer="sun" aria-pressed="false" data-i18n="layer_sun"></button>
+          <button type="button" data-layer="ice" aria-pressed="false" data-i18n="layer_ice"></button>
+        </span>
+        <span class="seg" role="group" id="baseSeg" hidden style="margin-left:8px">
+          <button type="button" data-base="mola" aria-pressed="true">MOLA</button>
+          <button type="button" data-base="viking" aria-pressed="false">Viking</button>
+        </span>
+      </div>
+      <div class="key">
+        <span><i class="glyph ground"></i><span data-i18n="legend_ground"></span></span>
+        <span><i class="glyph orbital"></i><span data-i18n="legend_orbital"></span></span>
+      </div>
+    </div>
+    <div class="map-scroll">
+      <div class="map" id="map">
+        <canvas id="relief" width="1280" height="640" aria-hidden="true"></canvas>
+        <div class="tiles" id="tiles" hidden aria-hidden="true"></div>
+        <canvas id="overlay" width="720" height="360" aria-hidden="true"></canvas>
+        <div class="haze" id="haze"></div>
+        <svg id="mapsvg" viewBox="0 0 1000 500" preserveAspectRatio="none" role="group" aria-label="Mars"></svg>
+        <div class="haze-note" id="hazeNote" hidden></div>
+      </div>
+    </div>
+    <div class="map-foot">
+      <p id="mapNote"></p>
+      <div id="layerLegend"></div>
+    </div>
+
+    <div class="reveal" id="reveal" hidden></div>
+    <div class="vote-row" id="voteRow"></div>
+    <div class="chips" id="chips"></div>
+  </section>
+  </main>
+</div>
+
+<div class="console" id="console">
+  <div class="wrap console-in">
+    <div class="con-block con-site">
+      <label class="con-label" for="siteSelect" data-i18n="con_site"></label>
+      <select id="siteSelect"></select>
+    </div>
+    <div class="lamps">
+      <div class="lamp-wrap">
+        <button type="button" class="lamp lamp-amber" id="lampStorm" aria-pressed="false"><b data-i18n="st_storm"></b><span id="lampStormSub"></span></button>
+        <div class="lamp-sub"><select id="stormClass" aria-label="Storm"></select></div>
+      </div>
+      <div class="lamp-wrap">
+        <button type="button" class="lamp lamp-violet" id="lampFlare" aria-pressed="false"><b data-i18n="st_flare"></b><span id="lampFlareSub"></span></button>
+        <div class="lamp-sub"><span id="flareNote"></span></div>
+      </div>
+      <div class="lamp-wrap">
+        <button type="button" class="lamp lamp-red" id="lampReactor" aria-pressed="false"><b data-i18n="st_reactor"></b><span data-i18n="st_reactor_sub"></span></button>
+        <div class="lamp-sub"><span id="reactorNote"></span></div>
+      </div>
+      <div class="lamp-wrap">
+        <button type="button" class="lamp lamp-blue" id="lampOffset" aria-pressed="false"><b data-i18n="st_offset"></b><span id="lampOffsetSub"></span></button>
+        <div class="lamp-sub"><input type="range" id="offsetKm" min="1" max="10" step="1" value="3" aria-label="km"><button type="button" id="offsetDir" data-i18n="st_offset_dir"></button></div>
+      </div>
+    </div>
+    <div class="con-block con-season">
+      <label class="con-label" for="ls" data-i18n="season"></label>
+      <div class="row"><input type="range" id="ls" min="0" max="359" step="1" value="190"><button type="button" id="worstSeason" data-i18n="btn_worst_season"></button></div>
+      <output id="lsOut" for="ls"></output>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="sec" id="site">
+    <div class="sec-head"><span class="sec-num">1</span><div><h2 id="siteTitle"></h2><p class="sec-sub" id="siteSub"></p></div></div>
+    <div class="cols wide-left">
+      <div class="panel"><table class="facts" id="facts"></table></div>
+      <div class="stack">
+        <div class="panel" id="scorePanel"></div>
+        <div class="panel"><div class="lesson" id="lesson"></div></div>
+        <div class="links" id="siteLinks"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="walk">
+    <div class="sec-head"><span class="sec-num">2</span><div><h2 data-i18n="s2"></h2><p class="sec-sub" id="walkSub"></p></div></div>
+    <div class="cols">
+      <div class="panel">
+        <div class="wl-tools">
+          <span class="tool-label" data-i18n="layers"></span>
+          <span class="seg" role="group" id="wlSeg">
+            <button type="button" data-wl="ground" aria-pressed="true" data-i18n="wl_ground"></button>
+            <button type="button" data-wl="time" aria-pressed="false" data-i18n="wl_time"></button>
+          </span>
+        </div>
+        <div class="walkbox">
+          <canvas id="walkcv" width="480" height="480" aria-hidden="true"></canvas>
+          <svg class="walkmap" id="walkmap" viewBox="0 0 560 560" role="group"></svg>
+        </div>
+        <div class="terr-key" id="terrKey"></div>
+        <div class="walk-key" id="walkKey"></div>
+        <p class="small muted" id="wmapNote" style="margin:10px 0 0"></p>
+      </div>
+      <div class="stack">
+        <div class="pre" id="precedents"></div>
+        <div class="tgs" id="targets"></div>
+        <div class="panel detail" id="detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="sol">
+    <div class="sec-head"><span class="sec-num">3</span><div><h2 data-i18n="s3"></h2><p class="sec-sub" id="solSub"></p></div></div>
+    <div class="sol-ctrl">
+      <button type="button" class="btn" id="play"></button>
+      <input type="range" id="scrub" min="0" max="24" step="0.05" value="13" aria-label="LTST">
+    </div>
+    <div class="readout" id="readout"></div>
+    <p class="logline" id="logline"></p>
+    <div class="panel"><div class="chart-scroll"><svg class="solchart" id="solchart" viewBox="0 0 1000 512" role="img"></svg></div></div>
+    <div class="proj">
+      <div class="panel"><svg class="projchart" id="projchart" viewBox="0 0 640 186" role="img"></svg></div>
+      <div><h3 data-i18n="proj_title"></h3><p id="projText"></p></div>
+    </div>
+  </section>
+
+  <section class="sec" id="crowd">
+    <div class="sec-head"><span class="sec-num">4</span><div><h2 data-i18n="s4"></h2><p class="sec-sub" data-i18n="s4_sub"></p></div></div>
+    <div id="crowdBody"></div>
+  </section>
+
+  <section class="sec" id="method">
+    <div class="sec-head"><span class="sec-num">5</span><div><h2 data-i18n="s5"></h2><p class="sec-sub" data-i18n="s5_sub"></p></div></div>
+    <div class="stack">
+      <div class="three">
+        <div class="panel"><h3 data-i18n="m_measured_t"></h3><p data-i18n="m_measured"></p></div>
+        <div class="panel"><h3 data-i18n="m_computed_t"></h3><p data-i18n="m_computed"></p></div>
+        <div class="panel"><h3 data-i18n="m_schematic_t"></h3><p data-i18n="m_schematic"></p></div>
+      </div>
+      <div class="panel"><h3 data-i18n="m_assume_t"></h3><ul class="assume" id="assume"></ul></div>
+      <div class="panel"><h3 data-i18n="m_sources_t"></h3><ul class="srclist" id="sources"></ul></div>
+    </div>
+  </section>
+
+  <footer><p data-i18n="footer"></p></footer>
+</div>
+<script>
+/* ================= DATA =================
+   Thirteen places. Nine are NASA landing sites (kind:'ground') — coordinates and elevations from MOLA,
+   temperature ranges are rounded typical values from each mission's weather instrument.
+   Four have never been visited (kind:'orbital') — their numbers are estimates.
+   Walk-target distances are approximate straight lines from the landing point. Verify before submission.
+   'ground' is the prevailing surface; 'fields' are named patches placed from mission reports (d km and compass bearing from the
+   landing point, half-axes rx/ry in km, rot = bearing of the long axis): Meridiani's ripple fields and crater cliffs, the Bagnold
+   Dunes and Mount Sharp's slopes at Gale, Séítah's sand and the delta scarp at Jezero, the Columbia Hills at Gusev. Schematic. */
+const SITES = [
+  {
+    id: 'chryse', kind: 'ground', lat: 22.27, lon: -47.95, elev: -3.6, hazard: 0.30, label: [-10, -10, 'end'],
+    name: { ru: 'Равнина Хриса', en: 'Chryse Planitia' }, short: { ru: 'Хриса', en: 'Chryse' },
+    teaser: { ru: 'Каменистая равнина в устье древних потоков', en: 'A rocky plain at the mouth of ancient flood channels' },
+    mission: { ru: 'Viking 1 · 1976–1982 · изотопные генераторы', en: 'Viking 1 · 1976–1982 · radioisotope power' },
+    tmin: -86, tmax: -31, tsrc: { ru: 'метеостанция Viking 1', en: 'Viking 1 meteorology' },
+    W: 15, water: { ru: 'Только связанная вода в грунте, несколько процентов', en: 'Only bound water in the soil, a few percent' },
+    wsrc: { ru: 'GRS · Mars Odyssey', en: 'GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: 'Команда с Земли', en: 'A command from Earth' },
+      x: {
+        ru: 'Viking 1 проработал шесть лет и замолчал в ноябре 1982 года: ошибочная команда при обновлении программы стёрла настройки антенны. Правило: связь не должна зависеть от одной антенны и одной команды.',
+        en: 'Viking 1 worked for six years and fell silent in November 1982: a faulty command during a software update overwrote its antenna pointing data. Rule: communication must never hang on one antenna and one command.'
+      }
+    },
+    focus: 'trench',
+    targets: [
+      { id: 'trench', d: 0.004, brg: 60, terrain: 'plain', sci: 3,
+        name: { ru: 'Траншеи Viking', en: 'The Viking trenches' },
+        note: { ru: 'Здесь в 1976 году искали жизнь: один из опытов дал сигнал, о котором спорят до сих пор. Человек привезёт этот грунт в лабораторию и закроет спор.',
+                en: 'Life was searched for here in 1976, and one experiment gave a signal still argued about. A human brings this soil back to a lab and settles it.' } },
+      { id: 'bigjoe', d: 0.008, brg: 200, terrain: 'rocky', sci: 1,
+        name: { ru: 'Валун Big Joe', en: 'Big Joe boulder' },
+        note: { ru: 'Двухметровый валун в восьми метрах от модуля. Манипулятор дотягивался на три метра; человек перевернёт камни и возьмёт пробы из-под них.',
+                en: 'A two-meter boulder eight meters from the lander. The sampler arm reached three meters; a human turns the rocks over and samples beneath them.' } }
+    ]
+  },
+  {
+    id: 'utopia', kind: 'ground', lat: 47.64, lon: 134.29, elev: -4.5, hazard: 0.35, label: [-10, -9, 'end'],
+    name: { ru: 'Равнина Утопия', en: 'Utopia Planitia' }, short: { ru: 'Утопия', en: 'Utopia' },
+    teaser: { ru: 'Равнина, где зимой на камни ложится иней', en: 'A plain where frost settles on the rocks in winter' },
+    mission: { ru: 'Viking 2 · 1976–1980 · изотопные генераторы', en: 'Viking 2 · 1976–1980 · radioisotope power' },
+    tmin: -85, tmax: -30, tsrc: { ru: 'метеостанция Viking 2', en: 'Viking 2 meteorology' },
+    W: 40, water: { ru: 'Зимний иней; подземный лёд вероятен глубже', en: 'Winter frost; ground ice is likely deeper down' },
+    wsrc: { ru: 'камеры Viking 2; GRS · Mars Odyssey', en: 'Viking 2 cameras; GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: 'Иней по утрам', en: 'Frost in the morning' },
+      x: {
+        ru: 'Viking 2 дважды снял зимний иней на камнях: тонкий слой водяного льда. Аппарат отключился в апреле 1980 года после отказа батарей. Правило: на 48° широты запас энергии считают по зиме.',
+        en: 'Viking 2 twice photographed winter frost on the rocks, a thin layer of water ice. It shut down in April 1980 after its batteries failed. Rule: at 48° latitude you size your energy reserve for winter.'
+      }
+    },
+    focus: 'troughs',
+    targets: [
+      { id: 'frost', d: 0.005, brg: 320, terrain: 'rocky', sci: 2,
+        name: { ru: 'Камни с инеем', en: 'Frosted rocks' },
+        note: { ru: 'Зимой здесь выпадает водяной иней. Человек соберёт его до восхода и измерит состав; Viking мог только фотографировать.',
+                en: 'Water frost forms here in winter. A human collects it before sunrise and measures its composition; Viking could only take pictures.' } },
+      { id: 'troughs', d: 0.05, brg: 120, terrain: 'rocky', sci: 2,
+        name: { ru: 'Полигональные ложбины', en: 'Polygonal troughs' },
+        note: { ru: 'Сеть ложбин вокруг модуля может быть следом подземного льда. Двухметровый бур проверит это за одну смену.',
+                en: 'The network of troughs around the lander may trace buried ice. A two-meter drill checks that in one shift.' } }
+    ]
+  },
+  {
+    id: 'ares', ground: 'rocky', kind: 'ground', lat: 19.13, lon: -33.22, elev: -3.7, hazard: 0.45, label: [10, 14, 'start'],
+    name: { ru: 'Долина Арес', en: 'Ares Vallis' }, short: { ru: 'Арес', en: 'Ares' },
+    teaser: { ru: 'Русло древнего потопа, усыпанное валунами', en: 'An ancient flood channel strewn with boulders' },
+    mission: { ru: 'Mars Pathfinder и Sojourner · 1997 · солнечные батареи', en: 'Mars Pathfinder and Sojourner · 1997 · solar arrays' },
+    tmin: -76, tmax: -10, tsrc: { ru: 'ASI/MET · Pathfinder', en: 'ASI/MET · Pathfinder' },
+    W: 15, water: { ru: 'Только связанная вода в грунте, несколько процентов', en: 'Only bound water in the soil, a few percent' },
+    wsrc: { ru: 'GRS · Mars Odyssey', en: 'GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: '83 сола', en: '83 sols' },
+      x: {
+        ru: 'Pathfinder проработал 83 сола. Батарея выработала ресурс, и ночью электроника перемёрзла. Марсоход Sojourner за всё время не отошёл от станции дальше 12 метров. Правило: ночь на Марсе убивает всё, что не обогрето.',
+        en: 'Pathfinder lasted 83 sols. Its battery wore out and the electronics froze overnight. The Sojourner rover never went farther than 12 meters from the lander. Rule: the Martian night kills whatever is not heated.'
+      }
+    },
+    focus: 'bigcrater',
+    targets: [
+      { id: 'rockgarden', d: 0.01, brg: 230, terrain: 'rocky', sci: 1,
+        name: { ru: 'Сад камней', en: 'Rock Garden' },
+        note: { ru: 'Sojourner за 83 сола изучил десяток камней рядом со станцией. Геолог с молотком разберёт всю россыпь за час.',
+                en: 'In 83 sols Sojourner studied a dozen rocks beside the lander. A geologist with a hammer works through the whole field in an hour.' } },
+      { id: 'twinpeaks', d: 0.9, brg: 255, terrain: 'rocky', sci: 2,
+        name: { ru: 'Холмы Twin Peaks', en: 'Twin Peaks' },
+        note: { ru: 'Два холма высотой около 30 метров на всех панорамах Pathfinder. Ровер до них не добрался бы; человек дойдёт и вернётся до обеда.',
+                en: 'Two hills about 30 meters high in every Pathfinder panorama. The rover could never have reached them; a human walks there and back before lunch.' } },
+      { id: 'bigcrater', d: 2.2, brg: 135, terrain: 'rocky', sci: 2,
+        name: { ru: 'Кратер Big Crater', en: 'Big Crater' },
+        note: { ru: 'Кратер поперечником полтора километра вскрыл породы под наносами потопа. Спуск по стенке даст разрез, недоступный посадочным аппаратам.',
+                en: 'A crater a kilometer and a half across cut into the rock beneath the flood deposits. A climb down its wall gives a section no lander can reach.' } }
+    ]
+  },
+  {
+    id: 'gusev', ground: 'rocky',
+    fields: [{ t: 'slope', d: 3.4, brg: 108, rx: 1.25, ry: 0.8, rot: 20 }, { t: 'sand', d: 4.02, brg: 137, rx: 0.07 }],
+    kind: 'ground', lat: -14.57, lon: 175.47, elev: -1.9, hazard: 0.25, label: [-10, 4, 'end'],
+    name: { ru: 'Кратер Гусев', en: 'Gusev Crater' }, short: { ru: 'Гусев', en: 'Gusev' },
+    teaser: { ru: 'Кратер с холмами и следами горячих источников', en: 'A crater with hills and traces of hot springs' },
+    mission: { ru: 'Spirit · 2004–2010 · солнечные батареи · 7,7 км пути', en: 'Spirit · 2004–2010 · solar arrays · 7.7 km driven' },
+    tmin: -88, tmax: -5, tsrc: { ru: 'Mini-TES · Spirit', en: 'Mini-TES · Spirit' },
+    W: 25, water: { ru: 'Кремнезём и сульфаты в холмах; льда нет', en: 'Silica and sulfates in the hills; no ice' },
+    wsrc: { ru: 'приборы Spirit', en: 'Spirit instruments' },
+    lesson: {
+      t: { ru: 'Песчаная ловушка', en: 'The sand trap' },
+      x: {
+        ru: 'В мае 2009 года Spirit проломил корку и увяз в рыхлом грунте у плато Home Plate. Он не смог наклонить батареи к зимнему солнцу и замолчал 22 марта 2010 года. Правило: ровная поверхность не значит твёрдая.',
+        en: 'In May 2009 Spirit broke through a crust and sank into loose soil beside Home Plate. Unable to tilt its arrays toward the winter sun, it fell silent on March 22, 2010. Rule: flat ground is not the same as firm ground.'
+      }
+    },
+    focus: 'homeplate',
+    targets: [
+      { id: 'bonneville', d: 0.3, brg: 50, terrain: 'rocky', sci: 2,
+        name: { ru: 'Кратер Бонневиль', en: 'Bonneville Crater' },
+        note: { ru: 'Первая цель Spirit: кратер поперечником 210 метров. Ровер добирался до края 65 солов; пешком это несколько минут.',
+                en: 'Spirit’s first goal, a crater 210 meters across. The rover took 65 sols to reach the rim; on foot it is a few minutes.' } },
+      { id: 'westspur', d: 2.7, brg: 122, terrain: 'rocky', sci: 2,
+        name: { ru: 'Холмы Колумбия, отрог West Spur', en: 'Columbia Hills, West Spur' },
+        note: { ru: 'Spirit ехал сюда 156 солов и только здесь нашёл породы, изменённые водой. Наука оказалась не там, куда сели.',
+                en: 'Spirit drove 156 sols to get here, and only here found rock altered by water. The science was not where the lander came down.' } },
+      { id: 'husband', d: 3.3, brg: 104, terrain: 'slope', sci: 2,
+        name: { ru: 'Вершина Husband Hill', en: 'Husband Hill summit' },
+        note: { ru: 'Подъём занял у ровера больше года. С вершины виден весь район: человек составит геологическую карту за один выход.',
+                en: 'The climb took the rover more than a year. The summit overlooks the whole area: a human maps its geology in a single walk.' } },
+      { id: 'homeplate', d: 3.9, brg: 135, terrain: 'rocky', sci: 3,
+        name: { ru: 'Home Plate и ловушка Troy', en: 'Home Plate and the Troy trap' },
+        note: { ru: 'Заклинившее колесо ровера вспахало грунт и вскрыло почти чистый кремнезём, след горячих источников. Рядом ровер увяз навсегда. Человек возьмёт образцы и обойдёт рыхлое место.',
+                en: 'The rover’s jammed wheel ploughed the soil and exposed nearly pure silica, a trace of hot springs. Right beside it the rover got stuck for good. A human takes the samples and walks around the soft patch.' } }
+    ]
+  },
+  {
+    id: 'meridiani', 
+    fields: [{ t: 'sand', d: 3.7, brg: 184, rx: 1.7, ry: 0.85, rot: 80 }, { t: 'cliff', d: 0.87, brg: 95, rx: 0.065 }, { t: 'cliff', d: 6.43, brg: 172, rx: 0.4 }],
+    kind: 'ground', lat: -1.95, lon: -5.53, elev: -1.4, hazard: 0.10, label: [10, 4, 'start'],
+    name: { ru: 'Плато Меридиана', en: 'Meridiani Planum' }, short: { ru: 'Меридиана', en: 'Meridiani' },
+    teaser: { ru: 'Ровная как стол равнина у самого экватора', en: 'A table-flat plain right at the equator' },
+    mission: { ru: 'Opportunity · 2004–2018 · солнечные батареи · 45,2 км пути', en: 'Opportunity · 2004–2018 · solar arrays · 45.2 km driven' },
+    tmin: -88, tmax: -8, tsrc: { ru: 'Mini-TES · Opportunity', en: 'Mini-TES · Opportunity' },
+    W: 35, water: { ru: 'Гидратированные сульфаты в породе; льда нет', en: 'Hydrated sulfates in the rock; no ice' },
+    wsrc: { ru: 'приборы Opportunity; CRISM · MRO', en: 'Opportunity instruments; CRISM · MRO' },
+    lesson: {
+      t: { ru: 'Сол 5111', en: 'Sol 5111' },
+      x: {
+        ru: 'В июне 2018 года пыльная буря подняла непрозрачность неба с обычных 0,5 до 10,8. Выработка батарей упала с 645 до 22 Вт·ч за сол. 10 июня, на 5111-й сол, Opportunity вышел на связь в последний раз. Правило: солнце на Марсе может исчезнуть на месяцы.',
+        en: 'In June 2018 a dust storm pushed sky opacity from the usual 0.5 to 10.8. Array output fell from 645 to 22 watt-hours per sol. On June 10, sol 5111, Opportunity called home for the last time. Rule: on Mars the sun can vanish for months.'
+      }
+    },
+    focus: 'victoria',
+    targets: [
+      { id: 'endurance', d: 0.8, brg: 95, terrain: 'plain', sci: 3,
+        name: { ru: 'Кратер Эндьюранс', en: 'Endurance Crater' },
+        note: { ru: 'Слоистые стенки с записью о древней солёной воде. Opportunity полгода работал внутри; человек со страховкой опишет разрез за день.',
+                en: 'Layered walls recording ancient salty water. Opportunity spent half a year inside; a roped-up human logs the section in a day.' } },
+      { id: 'heatshield', d: 1.1, brg: 140, terrain: 'plain', sci: 2,
+        name: { ru: 'Метеорит Heat Shield Rock', en: 'Heat Shield Rock' },
+        note: { ru: 'Первый метеорит, найденный на другой планете: железный, размером с баскетбольный мяч. Лежит рядом с теплозащитным экраном ровера.',
+                en: 'The first meteorite found on another planet: iron, the size of a basketball. It lies next to the rover’s own heat shield.' } },
+      { id: 'purgatory', d: 3.3, brg: 182, terrain: 'sand', sci: 1,
+        name: { ru: 'Дюна Purgatory', en: 'Purgatory Dune' },
+        note: { ru: 'Гряда высотой 30 сантиметров, в которой Opportunity буксовал пять недель. Здесь проверяют грунт перед любым маршрутом на юг.',
+                en: 'A ripple 30 centimeters high where Opportunity spun its wheels for five weeks. This is where you test the ground before any route south.' } },
+      { id: 'victoria', d: 6.0, brg: 172, terrain: 'plain', sci: 3,
+        name: { ru: 'Кратер Виктория', en: 'Victoria Crater' },
+        note: { ru: 'Кратер поперечником 800 метров с обрывами до 70 метров. Ровер добрался сюда на 951-й сол. Пешком это два часа, но на таком расстоянии любой отказ нужно пережить.',
+                en: 'A crater 800 meters across with cliffs up to 70 meters. The rover arrived on sol 951. On foot it is two hours, but at this distance you have to survive any failure.' } },
+      { id: 'endeavour', d: 23, brg: 150, terrain: 'plain', sci: 3,
+        name: { ru: 'Кратер Индевор', en: 'Endeavour Crater' },
+        note: { ru: 'Кратер поперечником 22 километра с глинами на краю, главная находка второй половины миссии. Пешком недостижим: нужен герметичный ровер и убежище на полпути.',
+                en: 'A 22-kilometer crater with clays on its rim, the key find of the mission’s second half. Out of reach on foot: it takes a pressurized rover and a shelter halfway.' } }
+    ]
+  },
+  {
+    id: 'greenvalley', kind: 'ground', lat: 68.22, lon: -125.75, elev: -4.1, hazard: 0.15, label: [10, -8, 'start'],
+    name: { ru: 'Зелёная долина', en: 'Green Valley' }, short: { ru: 'Зелёная долина', en: 'Green Valley' },
+    teaser: { ru: 'Лёд в пяти сантиметрах под ногами', en: 'Ice five centimeters under your boots' },
+    mission: { ru: 'Phoenix · 2008 · солнечные батареи · 68° северной широты', en: 'Phoenix · 2008 · solar arrays · 68° north' },
+    tmin: -98, tmax: -20, tsrc: { ru: 'MET · Phoenix', en: 'MET · Phoenix' },
+    W: 100, water: { ru: 'Водяной лёд на глубине около 5 см, вскрыт ковшом', en: 'Water ice about 5 cm down, exposed by the scoop' },
+    wsrc: { ru: 'Phoenix; GRS · Mars Odyssey', en: 'Phoenix; GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: 'Полярная зима', en: 'Polar winter' },
+      x: {
+        ru: 'Phoenix нашёл лёд под тонким слоем грунта и проработал 157 солов. Осенью солнце ушло к горизонту, на аппарат лёг углекислый иней. Позже орбитальные снимки показали сломанные панели. Правило: лёд есть там, где нет зимнего солнца.',
+        en: 'Phoenix found ice under a thin layer of soil and worked for 157 sols. In autumn the sun sank toward the horizon and carbon dioxide frost settled on the lander. Orbital images later showed its panels broken. Rule: the ice is where the winter sun is not.'
+      }
+    },
+    focus: 'icetrench',
+    targets: [
+      { id: 'icetrench', d: 0.003, brg: 20, terrain: 'plain', sci: 3,
+        name: { ru: 'Ледяная траншея', en: 'The ice trench' },
+        note: { ru: 'Ковш вскрыл лёд, и его кусочки испарились за четыре сола. Человек возьмёт керн и сохранит его замороженным: первая проба марсианского льда для Земли.',
+                en: 'The scoop exposed ice, and its chunks vanished within four sols. A human takes a core and keeps it frozen: the first Martian ice sample bound for Earth.' } },
+      { id: 'polygons', d: 0.03, brg: 250, terrain: 'plain', sci: 2,
+        name: { ru: 'Морозобойные полигоны', en: 'Frost polygons' },
+        note: { ru: 'Грунт разбит на многоугольники в несколько метров, как в земной тундре. Разрез через ложбину покажет, как лёд меняется от сезона к сезону.',
+                en: 'The ground is cracked into polygons a few meters wide, as in Earth’s tundra. A cut across a trough shows how the ice changes from season to season.' } },
+      { id: 'heimdal', d: 20, brg: 90, terrain: 'rocky', sci: 2,
+        name: { ru: 'Кратер Хеймдал', en: 'Heimdal Crater' },
+        note: { ru: 'Кратер поперечником около 11 километров, на выбросах которого стоит Phoenix. Пешком недостижим.',
+                en: 'A crater about 11 kilometers across; Phoenix sits on its ejecta. Out of reach on foot.' } }
+    ]
+  },
+  {
+    id: 'gale', 
+    fields: [{ t: 'rocky', d: 3.0, brg: 222, rx: 1.1, ry: 0.8, rot: 40 }, { t: 'sand', d: 7.4, brg: 188, rx: 3.3, ry: 0.75, rot: 62 }, { t: 'slope', d: 11.5, brg: 165, rx: 4.2, ry: 2.6, rot: 62 }],
+    kind: 'ground', lat: -4.59, lon: 137.44, elev: -4.5, hazard: 0.30, label: [-10, 13, 'end'],
+    name: { ru: 'Кратер Гейл', en: 'Gale Crater' }, short: { ru: 'Гейл', en: 'Gale' },
+    teaser: { ru: 'Кратер с горой высотой пять километров', en: 'A crater with a five-kilometer mountain inside' },
+    mission: { ru: 'Curiosity · с 2012 года · изотопный генератор', en: 'Curiosity · since 2012 · radioisotope power' },
+    tmin: -85, tmax: -5, tsrc: { ru: 'REMS · Curiosity', en: 'REMS · Curiosity' },
+    W: 30, water: { ru: 'Глины и сульфаты; около 2 % воды в грунте', en: 'Clays and sulfates; about 2% water in the soil' },
+    wsrc: { ru: 'SAM и DAN · Curiosity', en: 'SAM and DAN · Curiosity' },
+    extraLink: { url: 'https://science.nasa.gov/resource/curiositys-proposed-path-up-mount-sharp/', t: { ru: 'Маршрут Curiosity на гору Шарп', en: 'Curiosity’s proposed path up Mount Sharp' } },
+    lesson: {
+      t: { ru: 'Та же буря, другой исход', en: 'Same storm, different ending' },
+      x: {
+        ru: 'Бурю 2018 года Curiosity встретил в кратере Гейл: небо потемнело до τ около 8,5. Изотопный генератор не зависит от солнца, и марсоход продолжил работу. Его слабым местом оказались колёса: острые камни пробили их на втором году пути. Правило: нужна энергия без солнца и обувь под местный грунт.',
+        en: 'Curiosity met the 2018 storm in Gale Crater, where the sky darkened to a τ of about 8.5. Its radioisotope generator does not need the sun, and the rover kept working. Its weak point turned out to be the wheels: sharp rocks punctured them in its second year. Rule: bring power that needs no sun, and boots made for the local ground.'
+      }
+    },
+    focus: 'pahrump',
+    targets: [
+      { id: 'yellowknife', d: 0.45, brg: 80, terrain: 'plain', sci: 3,
+        name: { ru: 'Залив Йеллоунайф', en: 'Yellowknife Bay' },
+        note: { ru: 'Дно древнего пресного озера: здесь Curiosity доказал, что Марс был пригоден для жизни. Его бур входит на 6 сантиметров; человек пробурит два метра, где органику не разрушила радиация.',
+                en: 'The bed of an ancient freshwater lake, where Curiosity showed Mars was once habitable. Its drill goes 6 centimeters deep; a human drills two meters, below where radiation destroys organics.' } },
+      { id: 'kimberley', d: 4.5, brg: 225, terrain: 'rocky', sci: 2,
+        name: { ru: 'Обнажение Кимберли', en: 'The Kimberley outcrop' },
+        note: { ru: 'Песчаники с наклонными слоями, отложенные рекой. Человек проследит слои на сотни метров и восстановит, куда текла вода.',
+                en: 'Sandstones with tilted beds laid down by a river. A human follows the beds for hundreds of meters and works out which way the water ran.' } },
+      { id: 'pahrump', d: 7.0, brg: 215, terrain: 'rocky', sci: 3,
+        name: { ru: 'Подножие горы Шарп', en: 'The foot of Mount Sharp' },
+        note: { ru: 'Curiosity шёл к этим слоям два года. Пешком это около трёх часов в одну сторону. Отсюда начинается разрез истории марсианского климата высотой пять километров.',
+                en: 'Curiosity took two years to reach these layers. On foot it is about three hours one way. A five-kilometer-tall record of Martian climate history starts here.' } },
+      { id: 'bagnold', d: 8.5, brg: 200, terrain: 'sand', sci: 2,
+        name: { ru: 'Дюны Багнольд', en: 'Bagnold Dunes' },
+        note: { ru: 'Первые активные дюны, изученные на другой планете. На песке шаг вдвое медленнее, и запас воздуха тает быстрее.',
+                en: 'The first active dunes studied on another planet. On sand your pace halves and your air runs down faster.' } }
+    ]
+  },
+  {
+    id: 'elysium', kind: 'ground', lat: 4.50, lon: 135.62, elev: -2.6, hazard: 0.08, label: [-10, -8, 'end'],
+    name: { ru: 'Равнина Элизий', en: 'Elysium Planitia' }, short: { ru: 'Элизий', en: 'Elysium' },
+    teaser: { ru: 'Самая ровная и скучная равнина: её выбрали за это', en: 'The flattest, dullest plain, chosen for exactly that' },
+    mission: { ru: 'InSight · 2018–2022 · солнечные батареи', en: 'InSight · 2018–2022 · solar arrays' },
+    tmin: -95, tmax: -12, tsrc: { ru: 'TWINS · InSight', en: 'TWINS · InSight' },
+    W: 15, water: { ru: 'Только связанная вода в грунте, несколько процентов', en: 'Only bound water in the soil, a few percent' },
+    wsrc: { ru: 'GRS · Mars Odyssey', en: 'GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: 'Пыль каждый сол', en: 'Dust, every sol' },
+      x: {
+        ru: 'InSight сел на ровную равнину и медленно ослеп. Пыль оседала на панели: выработка упала примерно с 5000 до менее чем 500 Вт·ч за сол. Связь прервалась в декабре 2022 года. Правило: что нельзя почистить, то откажет.',
+        en: 'InSight landed on a flat plain and slowly went blind. Dust settled on its panels and output fell from about 5,000 to under 500 watt-hours per sol. Contact ended in December 2022. Rule: what you cannot clean will fail.'
+      }
+    },
+    focus: 'seismic',
+    targets: [
+      { id: 'mole', d: 0.002, brg: 180, terrain: 'plain', sci: 2,
+        name: { ru: 'Скважина зонда HP³', en: 'The HP³ mole hole' },
+        note: { ru: 'Зонд должен был уйти на пять метров, но грунт не дал сцепления, и он остался у поверхности. Человек с буром пройдёт эти метры и измерит тепловой поток планеты.',
+                en: 'The probe was meant to dig five meters, but the soil gave it no grip and it stayed near the surface. A human with a drill goes the distance and measures the planet’s heat flow.' } },
+      { id: 'seismic', d: 1.0, brg: 90, terrain: 'plain', sci: 3,
+        name: { ru: 'Сейсмический профиль', en: 'A seismic line' },
+        note: { ru: 'InSight услышал более 1300 марсотрясений одним прибором. Линия из десятка датчиков, расставленных вручную, покажет строение коры под будущей базой.',
+                en: 'InSight heard more than 1,300 marsquakes with a single instrument. A hand-laid line of a dozen sensors reveals the crust beneath a future base.' } }
+    ]
+  },
+  {
+    id: 'jezero', ground: 'rocky', view: 5,
+    fields: [{ t: 'sand', d: 1.15, brg: 297, rx: 0.8, ry: 0.5, rot: 20 }, { t: 'slope', d: 3.45, brg: 297, rx: 1.5, ry: 0.5, rot: 10 }, { t: 'slope', d: 11, brg: 270, rx: 2.4, ry: 1.6, rot: 0 }],
+    kind: 'ground', lat: 18.44, lon: 77.45, elev: -2.6, hazard: 0.40, label: [10, -8, 'start'],
+    name: { ru: 'Кратер Езеро', en: 'Jezero Crater' }, short: { ru: 'Езеро', en: 'Jezero' },
+    teaser: { ru: 'Дельта древней реки на берегу высохшего озера', en: 'An ancient river delta on the shore of a dried-up lake' },
+    mission: { ru: 'Perseverance и Ingenuity · с 2021 года · изотопный генератор', en: 'Perseverance and Ingenuity · since 2021 · radioisotope power' },
+    tmin: -83, tmax: -22, tsrc: { ru: 'MEDA · Perseverance', en: 'MEDA · Perseverance' },
+    W: 25, water: { ru: 'Карбонаты и глины; льда нет', en: 'Carbonates and clays; no ice' },
+    wsrc: { ru: 'CRISM · MRO; приборы Perseverance', en: 'CRISM · MRO; Perseverance instruments' },
+    extraLink: { url: 'https://mars.nasa.gov/mars2020/multimedia/raw-images/', t: { ru: 'Сырые снимки Perseverance', en: 'Perseverance raw images' } },
+    lesson: {
+      t: { ru: 'Рябь без ориентиров', en: 'Ripples with no landmarks' },
+      x: {
+        ru: 'Вертолёт Ingenuity совершил 72 полёта. В последнем, 18 января 2024 года, он летел над гладкой песчаной рябью: навигационная камера не нашла ориентиров, посадка вышла жёсткой, лопасти сломались. Правило: на однообразной местности навигация слепнет, нужны маяки и карта.',
+        en: 'The Ingenuity helicopter flew 72 times. On the last flight, January 18, 2024, it crossed smooth sand ripples: the navigation camera found nothing to track, the landing was hard and the blades broke. Rule: featureless ground blinds navigation, so bring beacons and a map.'
+      }
+    },
+    focus: 'delta',
+    targets: [
+      { id: 'seitah', d: 0.8, brg: 300, terrain: 'sand', sci: 2,
+        name: { ru: 'Сеита', en: 'Séítah' },
+        note: { ru: 'Песчаная рябь, которую ровер объезжал, а Ingenuity разведывал с воздуха. Среди ряби лежат древние магматические породы. Пешком проходимо, для ровера-спасателя закрыто.',
+                en: 'Sand ripples the rover drove around while Ingenuity scouted from the air. Ancient igneous rocks sit among them. Walkable on foot, closed to the rescue rover.' } },
+      { id: 'kodiak', d: 2.2, brg: 275, terrain: 'rocky', sci: 2,
+        name: { ru: 'Останец Кодиак', en: 'Kodiak butte' },
+        note: { ru: 'Обрыв с наклонными слоями: доказательство, что здесь были дельта и озеро. Perseverance снимал его издалека; человек отберёт образцы прямо из слоёв.',
+                en: 'A cliff of tilted beds, proof that a delta and a lake were here. Perseverance imaged it from afar; a human samples the beds themselves.' } },
+      { id: 'delta', d: 2.6, brg: 310, terrain: 'rocky', sci: 3,
+        name: { ru: 'Фронт дельты, Three Forks', en: 'The delta front, Three Forks' },
+        note: { ru: 'Илы и глины, которые лучше всего хранят следы жизни. Здесь ровер оставил запасные пробирки с образцами. Геолог выберет лучшие слои за часы, а не за месяцы.',
+                en: 'Muds and clays, the best keepers of traces of life. The rover left its backup sample tubes here. A geologist picks the best layers in hours, not months.' } },
+      { id: 'neretva', d: 8.5, brg: 285, terrain: 'rocky', sci: 3,
+        name: { ru: 'Долина Неретва, камень Cheyava Falls', en: 'Neretva Vallis, Cheyava Falls rock' },
+        note: { ru: 'Камень с «леопардовыми пятнами», самый интригующий кандидат в следы древней жизни. Запаса воздуха на такой путь по камням не хватает: нужен герметичный ровер.',
+                en: 'A rock with “leopard spots”, the most intriguing candidate trace of ancient life. Primary air does not cover a walk this long over rock: it takes a pressurized rover.' } },
+      { id: 'rim', d: 11, brg: 270, terrain: 'slope', sci: 2,
+        name: { ru: 'Вал кратера, Lookout Hill', en: 'The crater rim, Lookout Hill' },
+        note: { ru: 'Древнейшие породы района, поднятые ударом. Ровер поднимался сюда три с половиной месяца. Для пешей прогулки слишком далеко и круто.',
+                en: 'The oldest rocks in the area, lifted by the impact. The rover climbed for three and a half months. Too far and too steep for a walk.' } }
+    ]
+  },
+  {
+    id: 'arcadia', kind: 'orbital', lat: 39.8, lon: -157.9, elev: -3.9, hazard: 0.15, label: [10, 4, 'start'],
+    name: { ru: 'Равнина Аркадия', en: 'Arcadia Planitia' }, short: { ru: 'Аркадия', en: 'Arcadia' },
+    teaser: { ru: 'Ледник под тонким слоем пыли', en: 'A glacier under a thin layer of dust' },
+    mission: { ru: 'Аппараты не садились · данные MRO, Mars Odyssey, MGS', en: 'No landings · data from MRO, Mars Odyssey, MGS' },
+    tmin: -95, tmax: -30, tsrc: null,
+    W: 85, water: { ru: 'Лёд под слоем грунта тоньше метра; на месте не проверено', en: 'Ice beneath less than a meter of soil; not verified on the ground' },
+    wsrc: { ru: 'SHARAD и HiRISE · MRO; проект SWIM', en: 'SHARAD and HiRISE · MRO; SWIM project' },
+    lesson: {
+      t: { ru: 'Никто не проверял', en: 'Nobody has checked' },
+      x: {
+        ru: 'Радар SHARAD и свежие метеоритные кратеры показывают лёд под тонким слоем грунта. Ни один аппарат здесь не садился: нет ни одного измерения с поверхности. Правило: орбитальные данные остаются гипотезой до первой скважины.',
+        en: 'The SHARAD radar and fresh impact craters point to ice under a thin layer of soil. No spacecraft has landed here, so there is not a single surface measurement. Rule: orbital data stays a hypothesis until the first borehole.'
+      }
+    },
+    focus: 'borehole',
+    targets: [
+      { id: 'borehole', d: 0.05, brg: 40, terrain: 'plain', sci: 3,
+        name: { ru: 'Первая скважина на лёд', en: 'The first ice borehole' },
+        note: { ru: 'Радар обещает ледник под тонким слоем грунта. Первая же скважина проверит это и станет первым наземным измерением во всём регионе.',
+                en: 'Radar promises a glacier under thin soil. The very first borehole tests that, and becomes the first ground measurement in the whole region.' } }
+    ]
+  },
+  {
+    id: 'melas', ground: 'rocky', kind: 'orbital', lat: -10.4, lon: -72.7, elev: -4.4, hazard: 0.70, label: [10, 14, 'start'],
+    name: { ru: 'Каньон Мелас', en: 'Melas Chasma' }, short: { ru: 'Мелас', en: 'Melas' },
+    teaser: { ru: 'Дно каньона глубиной до семи километров', en: 'The floor of a canyon up to seven kilometers deep' },
+    mission: { ru: 'Аппараты не садились · данные MRO, Mars Odyssey, MGS', en: 'No landings · data from MRO, Mars Odyssey, MGS' },
+    tmin: -82, tmax: -8, tsrc: null,
+    W: 35, water: { ru: 'Гидратированные сульфаты, видны с орбиты', en: 'Hydrated sulfates, seen from orbit' },
+    wsrc: { ru: 'CRISM · MRO', en: 'CRISM · MRO' },
+    lesson: {
+      t: { ru: 'Стены', en: 'Walls' },
+      x: {
+        ru: 'Долины Маринер: самый зрелищный адрес на Марсе. Стены каньона закрывают низкое солнце и радиосвязь, со склонов сходят оползни. Ни один аппарат сюда не садился. Правило: красивое место и безопасное место лежат на разных слоях карты.',
+        en: 'Valles Marineris is the most spectacular address on Mars. The canyon walls block the low sun and radio contact, and landslides come down the slopes. No spacecraft has landed here. Rule: the beautiful place and the safe place are on different map layers.'
+      }
+    },
+    focus: 'layers',
+    targets: [
+      { id: 'layers', d: 2.0, brg: 10, terrain: 'rocky', sci: 3,
+        name: { ru: 'Слоистые отложения дна', en: 'Layered floor deposits' },
+        note: { ru: 'Светлые слоистые породы с сульфатами, возможные осадки древнего озера. Вблизи их никто не видел.',
+                en: 'Light-toned layered rocks with sulfates, possibly the sediments of an ancient lake. Nobody has seen them up close.' } }
+    ]
+  },
+  {
+    id: 'olympus', ground: 'rocky', kind: 'orbital', lat: 18.65, lon: -133.8, elev: 21.2, hazard: 0.50, label: [10, 4, 'start'],
+    name: { ru: 'Вершина Олимпа', en: 'Olympus Mons summit' }, short: { ru: 'Олимп', en: 'Olympus' },
+    teaser: { ru: 'Вершина высочайшего вулкана Солнечной системы', en: 'The summit of the tallest volcano in the Solar System' },
+    mission: { ru: 'Аппараты не садились · данные MRO, Mars Odyssey, MGS', en: 'No landings · data from MRO, Mars Odyssey, MGS' },
+    tmin: -120, tmax: -50, tsrc: null,
+    W: 5, water: { ru: 'Сухая пыль; воды в досягаемости нет', en: 'Dry dust; no water within reach' },
+    wsrc: { ru: 'GRS · Mars Odyssey', en: 'GRS · Mars Odyssey' },
+    lesson: {
+      t: { ru: 'Слишком мало воздуха', en: 'Too little air' },
+      x: {
+        ru: 'На вершине Олимпа давление составляет около десятой доли и без того разреженного марсианского. Парашют там не работает, тормозить нечем, а защита атмосферы от радиации почти исчезает. Правило: высота на Марсе означает посадку без тормозов.',
+        en: 'At the summit of Olympus Mons the pressure is about a tenth of the already thin Martian average. A parachute does not work there, there is nothing to brake against, and the atmosphere’s radiation shielding is almost gone. Rule: altitude on Mars means landing without brakes.'
+      }
+    },
+    focus: 'caldera',
+    targets: [
+      { id: 'caldera', d: 3.0, brg: 350, terrain: 'rocky', sci: 2,
+        name: { ru: 'Край кальдеры', en: 'The caldera edge' },
+        note: { ru: 'Обрывы кальдеры глубиной до трёх километров вскрывают сотни лавовых потоков: летопись самого большого вулкана Солнечной системы.',
+                en: 'Caldera cliffs up to three kilometers deep expose hundreds of lava flows, the record of the largest volcano in the Solar System.' } }
+    ]
+  },
+  {
+    id: 'korolev', kind: 'orbital', lat: 72.8, lon: 164.6, elev: -4.0, hazard: 0.50, label: [-10, 4, 'end'],
+    name: { ru: 'Кратер Королёв', en: 'Korolev Crater' }, short: { ru: 'Королёв', en: 'Korolev' },
+    teaser: { ru: 'Кратер, до краёв заполненный водяным льдом', en: 'A crater filled to the brim with water ice' },
+    mission: { ru: 'Аппараты не садились · данные MRO, Mars Odyssey, MGS', en: 'No landings · data from MRO, Mars Odyssey, MGS' },
+    tmin: -90, tmax: -45, tsrc: null,
+    W: 100, water: { ru: 'Открытый водяной лёд, купол толщиной до 1,8 км', en: 'Exposed water ice, a dome up to 1.8 km thick' },
+    wsrc: { ru: 'SHARAD · MRO', en: 'SHARAD · MRO' },
+    lesson: {
+      t: { ru: 'Вода есть, солнца нет', en: 'Water, but no sun' },
+      x: {
+        ru: 'В кратере Королёв лежит купол водяного льда толщиной до 1,8 км, около 2200 кубических километров. Но на 73° широты солнце зимой не поднимается месяцами, а на лёд оседает углекислый иней. Правило: воду можно привезти или добыть, полярную ночь можно только переждать.',
+        en: 'Korolev Crater holds a dome of water ice up to 1.8 km thick, about 2,200 cubic kilometers. But at 73° latitude the winter sun stays down for months and carbon dioxide frost settles on the ice. Rule: water can be shipped or mined; the polar night can only be waited out.'
+      }
+    },
+    focus: 'dome',
+    targets: [
+      { id: 'dome', d: 1.0, brg: 0, terrain: 'plain', sci: 3,
+        name: { ru: 'Край ледяного купола', en: 'The edge of the ice dome' },
+        note: { ru: 'Слои льда хранят историю климата Марса, как керны Антарктиды. Марсианский ледник ещё никто не бурил.',
+                en: 'The ice layers hold the history of Mars’ climate, like Antarctic cores. Nobody has drilled a Martian glacier yet.' } }
+    ]
+  }
+];
+
+if (typeof module !== 'undefined') module.exports = { SITES };
+/* ================= MODEL =================
+   Pure functions, no DOM. Everything the page shows as a number comes from here.
+   Assumptions live in MARS, BASE, EVA and STORMS so a team can change them in one place. */
+const Model = (() => {
+  const DEG = Math.PI / 180;
+
+  const MARS = {
+    S0: 586.2,        // W/m2, mean solar flux at Mars' distance
+    e: 0.0934,        // orbital eccentricity
+    lsPeri: 251,      // solar longitude of perihelion, deg
+    obl: 25.19,       // axial tilt, deg
+    solH: 24.6597,    // length of a sol in Earth hours
+    P0: 610,          // Pa at the datum
+    scaleH: 10.8,     // km, pressure scale height
+    tauClear: 0.5,    // typical dust opacity on a clear sol
+    kTau: 0.33        // array output ~ exp(-kTau * tau); fitted to Opportunity, June 2018: 645 -> 22 Wh as tau went 0.5 -> 10.8
+  };
+
+  const BASE = {
+    crew: 4,
+    reactorKW: 40,      // fission surface power, 4 x 10 kWe class
+    loadNominal: 40,    // kW with labs, greenhouse and resource plant running
+    loadSurvival: 8,    // kW, life support only
+    backupArea: 500,    // m2 of emergency solar blanket
+    eff: 0.20,          // net array efficiency
+    storeKWh: 600,      // energy storage
+    repairSols: 30      // sols the base must hold without the reactor
+  };
+
+  const EVA = {
+    suitH: 8,           // primary life support, h
+    reserveH: 1,        // emergency reserve, h
+    pace: 3.0,          // km/h on firm flat ground in a suit
+    hurry: 1.3,         // pace multiplier when walking back in an emergency
+    roverKmh: 10,       // rescue rover speed
+    dispatchH: 0.25,    // time to get the rescue rover moving
+    workH: 1.5,         // time on site
+    stormFactor: 0.5,   // pace and rover speed multiplier in a dust storm
+    startAfterRise: 2,  // walk window opens this many hours after sunrise
+    endBeforeSet: 1,    // and closes this many hours before sunset
+    flareWarnH: 0.75,   // after a solar flare, energetic particles arrive within tens of minutes: time allowed to reach shelter
+    terrain: { plain: 1, rocky: 0.75, sand: 0.5, slope: 0.5, cliff: 0 },
+    roverOK: { plain: true, rocky: true, sand: false, slope: false, cliff: false }
+  };
+
+  const STORMS = {
+    regional: { tau: 3, sols: 15 },
+    y2007: { tau: 5.5, sols: 40 },
+    y2018: { tau: 10.8, sols: 60 }
+  };
+
+  /* ---------- Sun ---------- */
+  const sunFactor = ls => { const f = (1 + MARS.e * Math.cos((ls - MARS.lsPeri) * DEG)) / (1 - MARS.e * MARS.e); return f * f; };
+  const decl = ls => Math.asin(Math.sin(MARS.obl * DEG) * Math.sin(ls * DEG));
+  const cosZ = (lat, ls, h) => {
+    const d = decl(ls), p = lat * DEG, H = (h - 12) * 15 * DEG;
+    return Math.sin(p) * Math.sin(d) + Math.cos(p) * Math.cos(d) * Math.cos(H);
+  };
+  const sunElev = (lat, ls, h) => Math.asin(Math.max(-1, Math.min(1, cosZ(lat, ls, h)))) / DEG;
+  const halfDay = (lat, ls) => {
+    const x = -Math.tan(lat * DEG) * Math.tan(decl(ls));
+    return x >= 1 ? 0 : x <= -1 ? Math.PI : Math.acos(x);
+  };
+  /* Sunrise, sunset and day length in local solar hours (24 per sol). */
+  const sunTimes = (lat, ls) => {
+    const H0 = halfDay(lat, ls), half = H0 / DEG / 15;
+    return { rise: 12 - half, set: 12 + half, len: 2 * half, polarNight: H0 === 0, polarDay: H0 === Math.PI };
+  };
+  const trans = tau => Math.exp(-MARS.kTau * tau);
+  /* W/m2 on a horizontal surface. */
+  const flux = (lat, ls, h, tau) => { const mu = cosZ(lat, ls, h); return mu > 0 ? MARS.S0 * sunFactor(ls) * mu * trans(tau) : 0; };
+  const dailyMeanFlux = (lat, ls, tau) => {
+    const d = decl(ls), p = lat * DEG, H0 = halfDay(lat, ls);
+    const q = (H0 * Math.sin(p) * Math.sin(d) + Math.cos(p) * Math.cos(d) * Math.sin(H0)) / Math.PI;
+    return MARS.S0 * sunFactor(ls) * Math.max(0, q) * trans(tau);
+  };
+  const dailyKWh = (lat, ls, tau) => dailyMeanFlux(lat, ls, tau) * MARS.solH / 1000; // kWh per m2 per sol
+
+  const extremeLs = lat => {
+    let lo = 0, hi = 0, vLo = Infinity, vHi = -Infinity;
+    for (let ls = 0; ls < 360; ls++) {
+      const v = dailyMeanFlux(lat, ls, MARS.tauClear);
+      if (v < vLo - 1e-9) { vLo = v; lo = ls; }
+      if (v > vHi + 1e-9) { vHi = v; hi = ls; }
+    }
+    return { worst: lo, best: hi, min: vLo, max: vHi };
+  };
+  const seasonKey = ls => ['spring', 'summer', 'autumn', 'winter'][Math.floor((((ls % 360) + 360) % 360) / 90)];
+
+  /* ---------- Air, radiation, temperature ---------- */
+  const pressure = elev => MARS.P0 * Math.exp(-elev / MARS.scaleH); // Pa
+  /* mSv per sol. Curiosity's RAD measured about 0.67 at Gale (-4.5 km); thinner air shields less. */
+  const radiation = elev => { const ratio = pressure(elev) / pressure(-4.5); return 0.67 * (1 + 0.35 * Math.max(-0.3, 1 - ratio)); };
+
+  const tempRange = (site, ls, tau) => {
+    const ex = extremeLs(site.lat);
+    const q = dailyMeanFlux(site.lat, ls, MARS.tauClear);
+    const shift = ex.max > 0 ? -32 * (1 - q / ex.max) : -32;
+    let tmax = site.tmax + shift, tmin = site.tmin + shift * 0.6;
+    if (tau > 1.5) { const k = Math.min(1, (tau - 1.5) / 6); tmax -= 20 * k; tmin += 12 * k; } // dust flattens the daily swing
+    if (sunTimes(site.lat, ls).polarNight) tmax = tmin + 4;
+    tmin = Math.max(-125, tmin); tmax = Math.max(tmin + 2, tmax); // CO2 frost point caps the cold
+    return { tmin, tmax };
+  };
+  const tempAt = (site, ls, h, tau) => {
+    const { tmin, tmax } = tempRange(site, ls, tau);
+    const st = sunTimes(site.lat, ls);
+    const rise = st.polarNight ? 6 : st.polarDay ? 2 : st.rise, peak = 13.5;
+    let hh = h; if (hh < rise) hh += 24;
+    let s;
+    if (hh <= peak) s = Math.pow(Math.sin(Math.PI / 2 * (hh - rise) / (peak - rise)), 2);
+    else s = Math.pow(1 - (hh - peak) / (rise + 24 - peak), 2.2);
+    return tmin + (tmax - tmin) * s;
+  };
+
+  /* ---------- Conditions ---------- */
+  /* cond: { ls, storm, stormClass, reactor (true = failed), offset, offsetKm, offsetBrg } */
+  const tauOf = cond => cond.storm ? STORMS[cond.stormClass || 'y2018'].tau : MARS.tauClear;
+
+  /* ---------- Base power ---------- */
+  const powerAt = (site, cond, h, tau) => {
+    const t = tau === undefined ? tauOf(cond) : tau;
+    const solar = BASE.backupArea * BASE.eff * flux(site.lat, cond.ls, h, t) / 1000;
+    const reactor = cond.reactor ? 0 : BASE.reactorKW;
+    return { solar, reactor, gen: solar + reactor, load: cond.reactor ? BASE.loadSurvival : BASE.loadNominal };
+  };
+  /* Storage over the coming sols. The reactor fails at midnight of sol 1 with storage full. */
+  const simulate = (site, cond, sols = 30) => {
+    const step = 0.25, dt = step * MARS.solH / 24, cap = BASE.storeKWh;
+    const series = []; let store = cap, blackout = null, min = cap;
+    const storm = cond.storm ? STORMS[cond.stormClass || 'y2018'] : null;
+    for (let sol = 1; sol <= sols; sol++) {
+      const tau = storm && sol <= storm.sols ? storm.tau : MARS.tauClear;
+      for (let h = 0; h < 24; h += step) {
+        if (cond.reactor && !blackout) {
+          const p = powerAt(site, cond, h + step / 2, tau);
+          store = Math.min(cap, store + (p.gen - p.load) * dt);
+          if (store <= 0) { store = 0; blackout = { sol, h: h + step }; }
+        }
+        if (store < min) min = store;
+        series.push({ sol, h, store });
+      }
+    }
+    return { series, blackout, min, cap };
+  };
+  /* Sols the base holds on backup solar alone. Infinity when storage never empties. */
+  const holdSols = (site, ls, cond = {}) => {
+    const c = Object.assign({ ls, reactor: true, storm: false }, cond, { ls, reactor: true });
+    const r = simulate(site, c, 200);
+    return r.blackout ? r.blackout.sol - 1 + r.blackout.h / 24 : Infinity;
+  };
+
+  /* ---------- Ground around the base ----------
+     A schematic of the terrain within walking range, in km east (x) and north (y) of the planned landing point.
+     Each site has a base ground class plus named patches (dunes, slopes, cliffs) placed where mission reports put them.
+     Swap classAt() for a lookup into real slope and thermal-inertia rasters and everything downstream keeps working. */
+  const CLASSES = ['plain', 'rocky', 'sand', 'slope', 'cliff'];
+  const GRID = 97, BIG = 1e9;
+  const WINDOWS = [0.06, 0.25, 0.6, 1.5, 3, 5, 8, 12];
+  const hash2 = (ix, iy, seed) => {
+    let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(seed, 1274126177);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  const vnoise = (x, y, seed) => {
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed), c = hash2(xi, yi + 1, seed), d = hash2(xi + 1, yi + 1, seed);
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  };
+  const xyOf = (d, brg) => [d * Math.sin(brg * DEG), d * Math.cos(brg * DEG)];
+  const groundCache = new Map();
+  const rawClass = (g, site, x, y) => {
+    let cls = g.base;
+    if (g.base === 'plain') {
+      const n = 0.6 * vnoise(x * 1.7 + 31, y * 1.7 + 17, g.seed) + 0.4 * vnoise(x * 9 + 5, y * 9 + 3, g.seed);
+      if (n > 0.8 - 0.5 * site.hazard) cls = 'rocky';
+    }
+    for (let i = 0; i < g.fields.length; i++) {
+      const f = g.fields[i], dx = x - f.cx, dy = y - f.cy;
+      const u = (dx * f.cos + dy * f.sin) / f.rx, v = (-dx * f.sin + dy * f.cos) / f.ry;
+      let q = u * u + v * v;
+      if (q > 2.2) continue;
+      if (f.t !== 'cliff') q *= 0.7 + 0.6 * vnoise(u * 2.3 + 11 * i, v * 2.3 + 7 * i, g.seed + i);
+      if (q < 1) cls = f.t;
+    }
+    return cls;
+  };
+  const groundOf = site => {
+    if (groundCache.has(site.id)) return groundCache.get(site.id);
+    let seed = 7; for (const ch of site.id) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+    const mk = f => {
+      const [cx, cy] = xyOf(f.d, f.brg), a = (90 - (f.rot || 0)) * DEG; // rot: compass bearing of the long axis
+      return { t: f.t, cx, cy, rx: f.rx, ry: f.ry || f.rx, cos: Math.cos(a), sin: Math.sin(a) };
+    };
+    const named = (site.fields || []).map(mk);
+    const g = { base: site.ground || 'plain', seed, fields: named.filter(f => f.t !== 'cliff') };
+    /* A target keeps the ground class its mission reported, even where no named patch covers it. */
+    for (const tg of site.targets) {
+      if (tg.d > 12) continue;
+      const [x, y] = xyOf(tg.d, tg.brg);
+      if (rawClass(g, site, x, y) !== tg.terrain) {
+        const r = Math.max(0.008, Math.min(1, 0.2 * tg.d));
+        g.fields.push({ t: tg.terrain, cx: x, cy: y, rx: r, ry: r, cos: 1, sin: 0 });
+      }
+    }
+    g.fields.push(...named.filter(f => f.t === 'cliff'));
+    groundCache.set(site.id, g);
+    return g;
+  };
+  const classAt = (site, x, y) => rawClass(groundOf(site), site, x, y);
+
+  /* ---------- Routes: least-time paths over the ground grid ---------- */
+  const offsetVec = cond => cond.offset ? xyOf(cond.offsetKm, cond.offsetBrg) : [0, 0];
+  const windowOf = (site, cond) => {
+    let need = 0;
+    if (site.view) need = site.view / 1.12; // a site can frame its near targets and leave the far ones at the edge
+    else for (const tg of site.targets) if (tg.d <= 12) need = Math.max(need, tg.d);
+    if (cond.offset) need = Math.max(need, cond.offsetKm * 1.05);
+    return WINDOWS.find(w => w >= need * 1.12) || 12;
+  };
+  /* Moves to 32 neighbours, so reach zones come out round instead of eight-sided. Each move lists the cells it crosses. */
+  const MOVES = (() => {
+    const out = [];
+    for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+      if (!di && !dj) continue;
+      const a = Math.abs(di), b = Math.abs(dj), g = (x, y) => y ? g(y, x % y) : x;
+      if (g(a, b) !== 1) continue;
+      const steps = Math.max(a, b), via = [];
+      for (let k = 1; k < steps; k++) via.push([Math.round(di * k / steps), Math.round(dj * k / steps)]);
+      out.push({ di, dj, len: Math.hypot(di, dj), via });
+    }
+    return out;
+  })();
+  const dijkstra = (N, cell, start, speed) => {
+    const n = N * N, time = new Float64Array(n).fill(BIG), dist = new Float32Array(n), prev = new Int32Array(n).fill(-1);
+    const heapK = [], heapV = [];
+    const push = (k, v) => {
+      let i = heapK.length; heapK.push(k); heapV.push(v);
+      while (i > 0) { const p = (i - 1) >> 1; if (heapK[p] <= k) break; heapK[i] = heapK[p]; heapV[i] = heapV[p]; i = p; }
+      heapK[i] = k; heapV[i] = v;
+    };
+    const pop = () => {
+      const k0 = heapK[0], v0 = heapV[0], k = heapK.pop(), v = heapV.pop(), len = heapK.length;
+      if (len) {
+        let i = 0;
+        for (;;) {
+          let c = 2 * i + 1; if (c >= len) break;
+          if (c + 1 < len && heapK[c + 1] < heapK[c]) c++;
+          if (heapK[c] >= k) break;
+          heapK[i] = heapK[c]; heapV[i] = heapV[c]; i = c;
+        }
+        heapK[i] = k; heapV[i] = v;
+      }
+      return [k0, v0];
+    };
+    time[start] = 0; push(0, start);
+    while (heapK.length) {
+      const [k, c] = pop();
+      if (k > time[c]) continue;
+      const ci = c % N, cj = (c / N) | 0, sc = speed[c];
+      if (!sc) continue;
+      for (const m of MOVES) {
+        const ni = ci + m.di, nj = cj + m.dj; if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+        const nb = nj * N + ni, sn = speed[nb]; if (!sn) continue;
+        let slow = 0.5 / sc + 0.5 / sn, ok = true;
+        if (m.via.length) {
+          slow *= 1 / m.via.length; let mid = 0; // endpoints share one step, the cells between take the rest
+          for (const v of m.via) { const sv = speed[(cj + v[1]) * N + ci + v[0]]; if (!sv) { ok = false; break; } mid += 1 / sv; }
+          if (!ok) continue;
+          slow = (slow * m.via.length + mid) / (m.via.length + 1);
+        }
+        const len = cell * m.len, t = k + len * slow;
+        if (t < time[nb]) { time[nb] = t; dist[nb] = dist[c] + len; prev[nb] = c; push(t, nb); }
+      }
+    }
+    return { time, dist, prev };
+  };
+  const fieldCache = new Map();
+  /* Travel times from the base, as actually landed, to every cell: on foot at the planned pace, and by rescue rover. */
+  const field = (site, cond) => {
+    const key = site.id + '|' + (cond.offset ? cond.offsetKm + ',' + cond.offsetBrg : '-');
+    if (fieldCache.has(key)) return fieldCache.get(key);
+    const W = windowOf(site, cond), N = GRID, cell = 2 * W / N;
+    const idx = (x, y) => Math.max(0, Math.min(N - 1, Math.floor((W - y) / cell))) * N + Math.max(0, Math.min(N - 1, Math.floor((x + W) / cell)));
+    const cls = new Uint8Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) cls[j * N + i] = CLASSES.indexOf(classAt(site, -W + (i + .5) * cell, W - (j + .5) * cell));
+    for (const tg of site.targets) { const [x, y] = xyOf(tg.d, tg.brg); if (Math.abs(x) < W && Math.abs(y) < W) cls[idx(x, y)] = CLASSES.indexOf(tg.terrain); }
+    const [bx, by] = offsetVec(cond), start = idx(bx, by);
+    if (cls[start] === 4) cls[start] = 1;
+    const foot = new Float32Array(N * N), rover = new Float32Array(N * N);
+    for (let c = 0; c < N * N; c++) { const k = CLASSES[cls[c]]; foot[c] = EVA.pace * EVA.terrain[k]; rover[c] = EVA.roverOK[k] ? EVA.roverKmh : 0; }
+    rover[start] = EVA.roverKmh;
+    const F = { key, W, N, cell, idx, cls, start, bx, by, walk: dijkstra(N, cell, start, foot), rov: dijkstra(N, cell, start, rover) };
+    if (fieldCache.size > 60) fieldCache.clear();
+    fieldCache.set(key, F);
+    return F;
+  };
+  /* Bilinear read of a time grid at a point in km. */
+  const sample = (F, arr, x, y) => {
+    const N = F.N, u = Math.max(0, Math.min(N - 1, (x + F.W) / F.cell - .5)), v = Math.max(0, Math.min(N - 1, (F.W - y) / F.cell - .5));
+    const i = Math.min(N - 2, Math.floor(u)), j = Math.min(N - 2, Math.floor(v)), fx = u - i, fy = v - j, o = j * N + i;
+    return (arr[o] * (1 - fx) + arr[o + 1] * fx) * (1 - fy) + (arr[o + N] * (1 - fx) + arr[o + N + 1] * fx) * fy;
+  };
+  const pathTo = (F, c) => {
+    const out = [];
+    for (let k = c, guard = 0; k >= 0 && guard < 20000; k = F.walk.prev[k], guard++) out.push([-F.W + (k % F.N + .5) * F.cell, F.W - (((k / F.N) | 0) + .5) * F.cell]);
+    return out.reverse();
+  };
+
+  /* ---------- Marswalk ---------- */
+  /* Time allowed to reach air or shelter after one failure: the suit's reserve, or the flare warning if that is shorter. */
+  const limitH = cond => cond.flare ? Math.min(EVA.reserveH, EVA.flareWarnH) : EVA.reserveH;
+  const walkWindow = (lat, ls) => {
+    const st = sunTimes(lat, ls);
+    const open = st.rise + EVA.startAfterRise, close = st.set - EVA.endBeforeSet;
+    return { open, close, hours: Math.max(0, close - open) * MARS.solH / 24, st };
+  };
+  const evalTarget = (site, tg, cond) => {
+    const F = field(site, cond), [x, y] = xyOf(tg.d, tg.brg);
+    const dx = x - F.bx, dy = y - F.by, d = Math.hypot(dx, dy), brg = (Math.atan2(dx, dy) / DEG + 360) % 360;
+    const sf = cond.storm ? EVA.stormFactor : 1;
+    const inside = Math.abs(x) < F.W && Math.abs(y) < F.W, cell = inside ? F.idx(x, y) : -1;
+    /* Straight-line estimate: used inside one grid cell and for places beyond the mapped window. */
+    let tw = d / (EVA.pace * EVA.terrain[tg.terrain]), pathKm = d, tr = EVA.roverOK[tg.terrain] ? d / EVA.roverKmh : BIG, routed = false;
+    if (inside && cell !== F.start && F.walk.time[cell] < BIG / 10) { tw = F.walk.time[cell]; pathKm = Math.max(d, F.walk.dist[cell]); tr = F.rov.time[cell]; routed = true; }
+    const tOut = tw, tBack = tw / sf, work = EVA.workH, total = tOut + work + tBack;
+    const win = walkWindow(site.lat, cond.ls);
+    const airOK = total <= EVA.suitH, lightOK = total <= win.hours;
+    const tSelf = tw / (EVA.hurry * sf);
+    const roverAvail = !cond.reactor && tr < BIG / 10;
+    const tRover = roverAvail ? EVA.dispatchH + tr / sf : Infinity;
+    const tSafe = Math.min(tSelf, tRover), limit = limitH(cond);
+    const failOK = tSafe <= limit;
+    const verdict = (!airOK || !lightOK) ? 'nogo' : failOK ? 'go' : 'risk';
+    return { d, brg, x, y, v: pathKm / tw, pathKm, cell, routed, inside, tOut, tBack, work, total, airOK, lightOK, window: win,
+             tSelf, tRover, tSafe, limit, how: tRover < tSelf ? 'rover' : 'walk', roverAvail, failOK, verdict };
+  };
+  /* Reach on firm flat ground: the air limit on plan, and the radius within which one failure is survivable. */
+  const radii = cond => {
+    const sf = cond.storm ? EVA.stormFactor : 1, lim = limitH(cond);
+    const plan = (EVA.suitH - EVA.workH) / (1 / EVA.pace + 1 / (EVA.pace * sf));
+    const self = lim * EVA.pace * EVA.hurry * sf;
+    const rover = cond.reactor ? 0 : Math.max(0, lim - EVA.dispatchH) * EVA.roverKmh * sf;
+    return { plan, safe: Math.max(self, rover), self, rover };
+  };
+
+  /* ---------- Scores ---------- */
+  const landingScore = site => {
+    const air = Math.max(0, Math.min(1, (1 - site.elev) / 3)); // enough atmosphere to brake: full marks at -2 km and lower
+    return 100 * (1 - site.hazard) * air;
+  };
+  const scoreCache = new Map();
+  const scores = site => {
+    if (scoreCache.has(site.id)) return scoreCache.get(site.id);
+    const ex = extremeLs(site.lat);
+    const hold = holdSols(site, ex.worst);
+    const P = 100 * Math.min(1, hold / BASE.repairSols);
+    const L = landingScore(site);
+    let M = null, robust = 0, sciTotal = 0;
+    if (site.kind === 'ground') {
+      const base = { ls: ex.worst, storm: false, reactor: false, offset: false, stormClass: 'y2018' };
+      const conds = [base, Object.assign({}, base, { storm: true }), Object.assign({}, base, { reactor: true })];
+      for (const tg of site.targets) {
+        sciTotal += tg.sci;
+        if (conds.every(c => evalTarget(site, tg, c).verdict === 'go')) robust += tg.sci;
+      }
+      M = 100 * Math.min(1, robust / 9);
+    }
+    const comps = { water: site.W, power: P, land: L };
+    if (M !== null) comps.walk = M;
+    const vals = Object.values(comps);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const min = Math.min(...vals);
+    const weak = Object.keys(comps).reduce((a, k) => comps[k] < comps[a] ? k : a, Object.keys(comps)[0]);
+    const out = { comps, naive: mean, worst: 0.5 * min + 0.5 * mean, weak, hold, worstLs: ex.worst, robust, sciTotal };
+    scoreCache.set(site.id, out);
+    return out;
+  };
+  const ranking = sites => {
+    const rows = sites.map(s => Object.assign({ site: s }, scores(s)));
+    const byWorst = [...rows].sort((a, b) => b.worst - a.worst);
+    const byNaive = [...rows].sort((a, b) => b.naive - a.naive);
+    byWorst.forEach((r, i) => { r.rankWorst = i + 1; });
+    byNaive.forEach((r, i) => { r.rankNaive = i + 1; });
+    return byWorst;
+  };
+
+  return { DEG, MARS, BASE, EVA, STORMS, sunFactor, decl, cosZ, sunElev, sunTimes, trans, flux, dailyMeanFlux, dailyKWh,
+           extremeLs, seasonKey, pressure, radiation, tempRange, tempAt, tauOf, powerAt, simulate, holdSols,
+           offsetVec, walkWindow, evalTarget, radii, limitH, CLASSES, BIG, classAt, field, sample, pathTo, xyOf, landingScore, scores, ranking };
+})();
+
+if (typeof module !== 'undefined') module.exports = Model;
+/* ================= WORDS =================
+   Every string on the page, in Russian and English. */
+const T = {
+  brand: { ru: 'Худший сол', en: 'Worst Sol' },
+  brand_sub: { ru: 'Карта выживания для первых прогулок по Марсу', en: 'A survival map for the first walks on Mars' },
+  h1: { ru: 'Где бы вы поставили первую базу на Марсе?', en: 'Where would you put the first base on Mars?' },
+  lead: {
+    ru: 'Выберите место чутьём, без цифр. От него зависит, куда экипаж дойдёт пешком и успеет ли вернуться. Потом проверим место худшим солом: пыльной бурей, вспышкой на Солнце, отказом реактора и промахом при посадке. Всё это Марс уже показал аппаратам NASA.',
+    en: 'Pick a place by gut feeling, no numbers. It decides where the crew can walk and whether they make it back. Then we test it against its worst sol: a dust storm, a solar flare, a reactor failure and a missed landing. Mars has already shown all of these to NASA spacecraft.'
+  },
+  layers: { ru: 'Слой', en: 'Layer' },
+  layer_relief: { ru: 'Рельеф', en: 'Relief' },
+  layer_sun: { ru: 'Солнце за сол', en: 'Sunlight per sol' },
+  layer_ice: { ru: 'Лёд у поверхности', en: 'Near-surface ice' },
+  legend_ground: { ru: 'здесь работал аппарат NASA', en: 'a NASA spacecraft worked here' },
+  legend_orbital: { ru: 'только данные с орбиты', en: 'orbital data only' },
+  map_note_schema: {
+    ru: 'Рельеф нарисован схематично по высотам MOLA. Мозаики NASA Mars Trek подключатся сами, когда сайт будет размещён на обычном хостинге.',
+    en: 'Relief is a schematic drawn from MOLA elevations. NASA Mars Trek mosaics load by themselves once the site is on a regular web host.'
+  },
+  map_note_live: { ru: 'Подложка: NASA Mars Trek, мозаика {name}.', en: 'Basemap: NASA Mars Trek, {name} mosaic.' },
+  lg_sun: { ru: 'от 0 до {max} кВт·ч на м² за сол при τ {tau}. Чем темнее, тем меньше солнца.', en: '0 to {max} kWh per m² per sol at τ {tau}. Darker means less sun.' },
+  lg_ice_a: { ru: 'лёд в верхних сантиметрах грунта: Odyssey GRS, подтверждён Phoenix', en: 'ice in the top centimeters of soil: Odyssey GRS, confirmed by Phoenix' },
+  lg_ice_b: { ru: 'лёд местами, под метрами грунта: SHARAD, свежие кратеры, SWIM', en: 'patchy ice under meters of soil: SHARAD, fresh craters, SWIM' },
+  lg_ice_note: { ru: 'Схема по широтам, не карта залежей.', en: 'A schematic by latitude, not a deposit map.' },
+  haze: { ru: 'Пыль закрыла поверхность: τ {tau}', en: 'Dust hides the surface: τ {tau}' },
+  vote_prompt: { ru: 'Нажмите на место на карте или в списке. Это ваш голос.', en: 'Tap a place on the map or in the list. That is your vote.' },
+  voted_prompt: { ru: 'Нажмите на любое место, чтобы разобрать его.', en: 'Tap any place to examine it.' },
+  skip_vote: { ru: 'Показать ответ без голосования', en: 'Show the answer without voting' },
+  mine: { ru: 'ваш выбор', en: 'your pick' },
+  reveal: {
+    ru: 'Вы выбрали: <b>{site}</b>. В рейтинге худшего сола это место {rank} из {n}. Слабое звено: {weak}.',
+    en: 'You picked <b>{site}</b>. It ranks {rank} of {n} on the worst-sol score. Weakest link: {weak}.'
+  },
+  reveal_skip: {
+    ru: 'Первое место в рейтинге худшего сола: <b>{site}</b>. Слабое звено есть и у него: {weak}.',
+    en: 'Top of the worst-sol ranking: <b>{site}</b>. Even it has a weakest link: {weak}.'
+  },
+  reveal_btn: { ru: 'Смотреть разбор', en: 'See the breakdown' },
+  reveal_btn2: { ru: 'Весь рейтинг', en: 'Full ranking' },
+
+  con_site: { ru: 'Проверяем место', en: 'Testing the site' },
+  st_storm: { ru: 'Пыльная буря', en: 'Dust storm' },
+  st_storm_sub: { ru: 'небо темнеет до τ {tau}', en: 'sky darkens to τ {tau}' },
+  storm_regional: { ru: 'Региональная: τ 3, 15 солов', en: 'Regional: τ 3, 15 sols' },
+  storm_y2007: { ru: 'Как в 2007 году: τ 5,5, 40 солов', en: 'As in 2007: τ 5.5, 40 sols' },
+  storm_y2018: { ru: 'Как в 2018 году: τ 10,8, 60 солов', en: 'As in 2018: τ 10.8, 60 sols' },
+  st_flare: { ru: 'Вспышка на Солнце', en: 'Solar flare' },
+  st_flare_sub: { ru: 'частицы придут через {min} мин', en: 'particles arrive in {min} min' },
+  flare_note: { ru: 'все должны успеть в убежище', en: 'everyone must reach shelter' },
+  st_reactor: { ru: 'Отказ реактора', en: 'Reactor failure' },
+  st_reactor_sub: { ru: 'база на аварийных батареях', en: 'base on backup solar' },
+  reactor_note: { ru: '{a} кВт вместо {b}; ровер-спасатель стоит', en: '{a} kW instead of {b}; rescue rover parked' },
+  st_offset: { ru: 'Промах при посадке', en: 'Missed landing' },
+  st_offset_sub: { ru: '{km} км от цели', en: '{km} km off target' },
+  st_offset_dir: { ru: 'В другую сторону', en: 'Other direction' },
+  season: { ru: 'Сезон: солнечная долгота Ls', en: 'Season: solar longitude Ls' },
+  btn_worst_season: { ru: 'Худший сезон', en: 'Worst season' },
+  se_spring: { ru: 'весна на севере, осень на юге', en: 'northern spring, southern autumn' },
+  se_summer: { ru: 'лето на севере, зима на юге', en: 'northern summer, southern winter' },
+  se_autumn: { ru: 'осень на севере, весна на юге', en: 'northern autumn, southern spring' },
+  se_winter: { ru: 'зима на севере, лето на юге', en: 'northern winter, southern summer' },
+
+  p_coords: { ru: 'Координаты', en: 'Coordinates' },
+  p_elev: { ru: 'Высота', en: 'Elevation' },
+  p_press: { ru: 'Давление', en: 'Pressure' },
+  p_temp: { ru: 'Температура за сол', en: 'Temperature over a sol' },
+  p_day: { ru: 'Световой день', en: 'Daylight' },
+  p_sun: { ru: 'Солнце за сол', en: 'Sunlight per sol' },
+  p_water: { ru: 'Вода', en: 'Water' },
+  p_rad: { ru: 'Радиация', en: 'Radiation' },
+  p_land: { ru: 'Посадка', en: 'Landing' },
+  u_km: { ru: 'км', en: 'km' }, u_m: { ru: 'м', en: 'm' }, u_h: { ru: 'ч', en: 'h' }, u_min: { ru: 'мин', en: 'min' },
+  u_mbar: { ru: 'мбар', en: 'mbar' }, u_kw: { ru: 'кВт', en: 'kW' }, u_kmh: { ru: 'км/ч', en: 'km/h' },
+  u_N: { ru: 'с. ш.', en: 'N' }, u_S: { ru: 'ю. ш.', en: 'S' }, u_E: { ru: 'в. д.', en: 'E' },
+  press_v: { ru: '≈ {p} мбар, {pct} % земного', en: '≈ {p} mbar, {pct}% of Earth’s' },
+  temp_v: { ru: 'от {a} до {b} °C', en: '{a} to {b} °C' },
+  sun_v: { ru: '{now} кВт·ч/м² сейчас; {min} в худший сезон', en: '{now} kWh/m² now; {min} in the worst season' },
+  rad_v: { ru: '≈ {v} мЗв за сол', en: '≈ {v} mSv per sol' },
+  rad_flare: { ru: '+ 8,1 мГр за вспышку', en: '+ 8.1 mGy from the flare' },
+  src_flare: { ru: 'замер RAD в кратере Гейл, 20 мая 2024 года', en: 'RAD measurement in Gale Crater, May 20, 2024' },
+  polar_night: { ru: 'Полярная ночь: солнце не восходит', en: 'Polar night: the sun does not rise' },
+  polar_day: { ru: 'Полярный день: солнце не заходит', en: 'Polar day: the sun does not set' },
+  src_mola: { ru: 'MOLA · Mars Global Surveyor', en: 'MOLA · Mars Global Surveyor' },
+  src_press: { ru: 'расчёт по высоте', en: 'computed from elevation' },
+  src_orbit: { ru: 'расчёт: орбита Марса и пыль в небе', en: 'computed: Mars orbit and sky dust' },
+  src_rad: { ru: 'RAD · Curiosity, поправка на высоту', en: 'RAD · Curiosity, scaled by elevation' },
+  src_est: { ru: 'оценка: наземных измерений нет', en: 'estimate: no surface measurements' },
+  src_season: { ru: 'с поправкой на сезон и пыль', en: 'adjusted for season and dust' },
+  land_flat: { ru: 'ровная местность', en: 'level ground' },
+  land_rocks: { ru: 'камни и мелкие кратеры', en: 'rocks and small craters' },
+  land_rough: { ru: 'скалы, дюны или склоны рядом', en: 'cliffs, dunes or slopes nearby' },
+  land_bad: { ru: 'обрывы и оползни', en: 'cliffs and landslides' },
+  land_thin: { ru: 'воздуха слишком мало, чтобы тормозить', en: 'too little air to brake against' },
+  land_air: { ru: 'воздуха хватает для торможения', en: 'enough air to brake against' },
+  score_title: { ru: 'Оценка худшего сола', en: 'Worst-sol score' },
+  score_of: { ru: 'из 100 · место {rank} из {n}', en: 'out of 100 · rank {rank} of {n}' },
+  score_naive: { ru: 'В среднем по показателям: {v}', en: 'Average of the scores: {v}' },
+  c_water: { ru: 'Вода', en: 'Water' },
+  c_power: { ru: 'Зима без реактора', en: 'Winter, no reactor' },
+  c_walk: { ru: 'Прогулки', en: 'Marswalks' },
+  c_land: { ru: 'Посадка', en: 'Landing' },
+  weak_tag: { ru: 'слабое звено', en: 'weakest link' },
+  weak_water: { ru: 'вода', en: 'water' },
+  weak_power: { ru: 'энергия зимой без реактора', en: 'winter power without the reactor' },
+  weak_walk: { ru: 'прогулки в худший сезон', en: 'Marswalks in the worst season' },
+  weak_land: { ru: 'посадка', en: 'landing' },
+  hold_inf: { ru: 'Без реактора база держится на аварийных батареях в любой сезон.', en: 'Without the reactor the base holds on backup solar in any season.' },
+  hold_n: { ru: 'Без реактора в худший сезон накопитель опустеет через {n} {sols}.', en: 'Without the reactor in the worst season, storage runs dry in {n} {sols}.' },
+  no_walk_score: { ru: 'Прогулки не оцениваются: наземных данных нет.', en: 'Marswalks are not scored: there is no ground data.' },
+  link_trek: { ru: 'Открыть NASA Mars Trek', en: 'Open NASA Mars Trek' },
+  link_usgs: { ru: 'Карты USGS', en: 'USGS maps' },
+
+  s2: { ru: 'Прогулка от базы', en: 'The Marswalk from the base' },
+  walk_sub_ground: {
+    ru: 'Цели вокруг базы: настоящие места, до которых доезжали или которые снимали аппараты. Маршрут ищется по времени, в обход препятствий.',
+    en: 'Targets around the base are real places that spacecraft reached or imaged. The route is the quickest one, and it goes around obstacles.'
+  },
+  walk_sub_orbital: {
+    ru: 'Здесь не было ни одного аппарата. Цель ниже: гипотеза по орбитальным данным. Первая прогулка сама станет открытием.',
+    en: 'No spacecraft has been here. The target below is a hypothesis from orbital data. The first walk will itself be the discovery.'
+  },
+  key_safe: {
+    ru: 'Зелёная граница: зона одного отказа. Скафандр подвёл в этой зоне, и вы успеваете к воздуху. По ровному грунту это {km} км.',
+    en: 'Green line: the one-failure zone. Your suit fails inside it and you still reach air. On firm flat ground that is {km} km.'
+  },
+  key_safe_flare: {
+    ru: 'Зелёная граница: отсюда вы успеваете в убежище за {lim}, до прихода частиц. По ровному грунту это {km} км.',
+    en: 'Green line: from inside it you reach shelter within {lim}, before the particles arrive. On firm flat ground that is {km} km.'
+  },
+  key_plan: {
+    ru: 'Синий пунктир: предел по воздуху, если всё идёт по плану. По ровному грунту {km} км.',
+    en: 'Blue dashes: the air limit if everything goes to plan. On firm flat ground, {km} km.'
+  },
+  key_note: {
+    ru: 'Зоны считаются по времени пути, а не по расстоянию: песок, склоны и обход обрывов их сжимают.',
+    en: 'Zones are measured in travel time, not distance: sand, slopes and detours around cliffs shrink them.'
+  },
+  wl_ground: { ru: 'Грунт и маршрут', en: 'Ground and route' },
+  wl_time: { ru: 'Время до убежища', en: 'Time to shelter' },
+  tk_no: { ru: 'прохода нет', en: 'impassable' },
+  tk_time: { ru: 'время до воздуха при отказе: от нуля до трёх лимитов; лимит сейчас {lim}', en: 'time to air after a failure: zero to three limits; the limit is now {lim}' },
+  wmap_note: {
+    ru: 'Грунт нарисован схематично по отчётам миссий: положение дюн, склонов и обрывов приблизительное. В рабочей версии на их место встают уклоны HiRISE и тепловая инерция THEMIS.',
+    en: 'The ground is a schematic drawn from mission reports: dunes, slopes and cliffs are placed approximately. In a working version, HiRISE slopes and THEMIS thermal inertia take their place.'
+  },
+  w_base: { ru: 'База', en: 'Base' },
+  w_planned: { ru: 'цель посадки', en: 'planned landing point' },
+  v_go: { ru: 'Можно идти', en: 'Go' },
+  v_risk: { ru: 'На свой риск', en: 'At your own risk' },
+  v_nogo: { ru: 'Идти нельзя', en: 'No-go' },
+  terr_plain: { ru: 'ровная равнина', en: 'firm plain' },
+  terr_rocky: { ru: 'камни', en: 'rocky ground' },
+  terr_sand: { ru: 'песок', en: 'sand' },
+  terr_slope: { ru: 'крутой склон', en: 'steep slope' },
+  terr_cliff: { ru: 'обрыв', en: 'cliff' },
+  tl_out: { ru: 'туда', en: 'out' }, tl_work: { ru: 'работа', en: 'work' }, tl_back: { ru: 'обратно', en: 'back' },
+  tl_air: { ru: 'воздух кончается', en: 'air runs out' }, tl_res: { ru: 'резерв кончается', en: 'reserve runs out' },
+  d_dist: { ru: 'Расстояние', en: 'Distance' },
+  d_time: { ru: 'Вся прогулка', en: 'Whole walk' },
+  d_window: { ru: 'Окно для выхода', en: 'Walk window' },
+  d_fail: { ru: 'При отказе скафандра', en: 'If the suit fails' },
+  d_dist_v: {
+    ru: '{p} по маршруту, {d} по прямой · в среднем {v} км/ч',
+    en: '{p} along the route, {d} in a straight line · {v} km/h on average'
+  },
+  d_dist_line: { ru: '{d} по прямой · {terr} · шаг {v} км/ч', en: '{d} in a straight line · {terr} · pace {v} km/h' },
+  d_time_v: { ru: '{t} из {max} ч основного запаса воздуха', en: '{t} of {max} h of primary air' },
+  d_window_v: { ru: 'с {a} до {b} по местному времени, {h}', en: '{a} to {b} local time, {h}' },
+  d_window_none: { ru: 'светлого времени для выхода нет', en: 'no daylight for a walk' },
+  d_fail_v: { ru: '{t} до воздуха {how}; резерв {res}', en: '{t} to air {how}; the reserve is {res}' },
+  d_fail_flare: { ru: 'При вспышке или отказе', en: 'After a flare or a failure' },
+  d_fail_v_flare: { ru: '{t} до убежища {how}; на это есть {res}', en: '{t} to shelter {how}; you have {res}' },
+  how_rover: { ru: 'на ровере-спасателе', en: 'by rescue rover' },
+  how_walk: { ru: 'пешком', en: 'on foot' },
+  vl_go: { ru: 'Плана хватает, и один отказ вы переживёте.', en: 'The plan fits, and you survive one failure.' },
+  vl_risk: {
+    ru: 'По плану дойти можно. Но если скафандр откажет в дальней точке, к воздуху вы не успеете.',
+    en: 'The plan fits. But if your suit fails at the far point, you will not reach air in time.'
+  },
+  vl_risk_flare: {
+    ru: 'По плану дойти можно. Но если на Солнце случится вспышка, за {min} минут до убежища вы не дойдёте.',
+    en: 'The plan fits. But if the Sun flares, you will not reach shelter within {min} minutes.'
+  },
+  vl_nogo_air: { ru: 'Основного запаса воздуха не хватает на путь туда, работу и дорогу обратно.', en: 'Primary air does not cover the way out, the work and the way back.' },
+  vl_nogo_light: { ru: 'Не хватает светлого времени.', en: 'There is not enough daylight.' },
+  why_reactor: { ru: 'Ровер-спасатель не выезжает: база без реактора.', en: 'The rescue rover stays parked: the base has no reactor.' },
+  why_terrain: { ru: 'Ровер-спасатель сюда не пройдёт.', en: 'The rescue rover cannot get in here.' },
+  why_storm: { ru: 'Буря вдвое замедляет и шаг, и ровер.', en: 'The storm halves both your pace and the rover’s.' },
+  sci_h: { ru: 'Что нового сделает человек', en: 'What a human adds here' },
+  hypo: { ru: 'гипотеза', en: 'hypothesis' },
+
+  pre_none: {
+    ru: 'Обычный сол: стресс-тесты выключены. Включите их на тёмной панели и смотрите, как сжимается зелёная зона.',
+    en: 'An ordinary sol: the stress tests are off. Switch them on in the dark strip and watch the green zone shrink.'
+  },
+  pre_storm_t: { ru: 'Это уже было: Opportunity, июнь 2018 года', en: 'It happened: Opportunity, June 2018' },
+  pre_storm: {
+    ru: 'Непрозрачность неба выросла с обычных 0,5 до 10,8. Выработка батарей упала с 645 до 22 Вт·ч за сол, и ровер замолчал. На прогулке буря вдвое замедляет шаг и ровер-спасатель.',
+    en: 'Sky opacity rose from the usual 0.5 to 10.8. Array output fell from 645 to 22 watt-hours per sol and the rover went silent. On a walk, a storm halves your pace and the rescue rover’s speed.'
+  },
+  pre_flare_t: { ru: 'Это уже было: Curiosity, май 2024 года', en: 'It happened: Curiosity, May 2024' },
+  pre_flare: {
+    ru: '20 мая 2024 года после вспышки класса X12 детектор RAD на Curiosity записал 8100 микрогрей: как 30 рентгеновских снимков грудной клетки, рекорд за всю миссию. Частицы дошли до Марса за десятки минут. Здесь у экипажа {min} минут, чтобы вернуться в убежище.',
+    en: 'On May 20, 2024, after an X12-class flare, Curiosity’s RAD detector logged 8,100 micrograys: the dose of 30 chest X-rays and the biggest surge of the mission. The particles reached Mars within tens of minutes. Here the crew has {min} minutes to get back to shelter.'
+  },
+  pre_reactor_t: { ru: 'Зеркальный случай: Curiosity, 2018 год', en: 'The mirror case: Curiosity, 2018' },
+  pre_reactor: {
+    ru: 'Изотопный генератор провёл Curiosity через ту же бурю. Здесь мы отнимаем именно его: база переходит на аварийные батареи, ровер-спасатель не выезжает, вернуться можно только пешком.',
+    en: 'A radioisotope generator carried Curiosity through the same storm. Here we take exactly that away: the base drops to backup solar, the rescue rover stays parked, and the only way back is on foot.'
+  },
+  pre_offset_t: { ru: 'Это уже было: Spirit, 2004 год', en: 'It happened: Spirit, 2004' },
+  pre_offset: {
+    ru: 'Spirit сел в расчётный эллипс, но озёрных осадков там не оказалось: до пород, изменённых водой, пришлось ехать 2,7 км и 156 солов. Эллипс посадки Curiosity был 20 на 7 км, Perseverance 7,7 на 6,6 км. Несколько километров меняют всё, до чего можно дойти.',
+    en: 'Spirit landed inside its ellipse, yet the lake sediments were not there: rock altered by water was 2.7 km and 156 sols away. Curiosity’s landing ellipse was 20 by 7 km, Perseverance’s 7.7 by 6.6 km. A few kilometers change everything within walking reach.'
+  },
+
+  s3: { ru: 'Один сол на базе', en: 'One sol at the base' },
+  sol_sub: {
+    ru: '{site}, Ls {ls}°. Сол длится 24 часа 39 минут; на шкале местное солнечное время.',
+    en: '{site}, Ls {ls}°. A sol lasts 24 hours 39 minutes; the scale shows local solar time.'
+  },
+  play: { ru: 'Прожить сол', en: 'Play the sol' },
+  pause: { ru: 'Пауза', en: 'Pause' },
+  r_time: { ru: 'Время', en: 'Time' }, r_sun: { ru: 'Солнце', en: 'Sun' }, r_temp: { ru: 'Снаружи', en: 'Outside' },
+  r_gen: { ru: 'Выработка', en: 'Generation' }, r_load: { ru: 'Потребление', en: 'Demand' }, r_store: { ru: 'Запас', en: 'Storage' },
+  sun_below: { ru: 'под горизонтом', en: 'below the horizon' },
+  row_sky: { ru: 'Небо и высота солнца', en: 'Sky and sun elevation' },
+  row_temp: { ru: 'Температура снаружи, °C', en: 'Outside temperature, °C' },
+  row_power: { ru: 'Энергия базы, кВт', en: 'Base power, kW' },
+  row_store: { ru: 'Запас накопителя, %', en: 'Stored energy, %' },
+  row_crew: { ru: 'Экипаж', en: 'Crew' },
+  lg_gen: { ru: 'выработка', en: 'generation' }, lg_load: { ru: 'потребление', en: 'demand' },
+  crew_sleep: { ru: 'сон', en: 'sleep' }, crew_prep: { ru: 'сборы', en: 'prep' }, crew_eva: { ru: 'окно для выхода', en: 'walk window' },
+  crew_lab: { ru: 'лаб.', en: 'lab' }, crew_comm: { ru: 'связь', en: 'comms' }, crew_rest: { ru: 'отдых', en: 'rest' },
+  crew_shelter: { ru: 'все внутри: выходы отменены', en: 'everyone inside: walks cancelled' },
+  crew_flare: { ru: 'все в убежище: вспышка', en: 'everyone in shelter: flare' },
+  crew_emerg: { ru: 'аварийный режим: один отсек', en: 'emergency mode: one module' },
+  log_night_cold: {
+    ru: 'Экипаж спит. Снаружи {t} °C: холоднее земного рекорда, который держит антарктическая станция «Восток».',
+    en: 'The crew sleeps. Outside it is {t} °C, colder than Earth’s record, held by Vostok Station in Antarctica.'
+  },
+  log_night: { ru: 'Экипаж спит. Снаружи {t} °C.', en: 'The crew sleeps. Outside it is {t} °C.' },
+  log_rise: { ru: 'Восход. Солнечный диск на треть меньше, чем с Земли. Снаружи {t} °C.', en: 'Sunrise. The sun’s disc is a third smaller than from Earth. Outside it is {t} °C.' },
+  log_eva: { ru: 'Шлюз открыт, окно для выхода до {b}. Снаружи {t} °C.', en: 'The airlock is open and the walk window lasts until {b}. Outside it is {t} °C.' },
+  log_close: { ru: 'Все должны быть в шлюзе: до заката час.', en: 'Everyone must be in the airlock: sunset is an hour away.' },
+  log_set: { ru: 'Закат. Небо вокруг солнца голубое: на Марсе всё наоборот.', en: 'Sunset. The sky around the sun is blue: on Mars it is the other way round.' },
+  log_comm: { ru: 'Сеанс связи. Сигнал идёт до Земли от 3 до 22 минут в одну сторону.', en: 'Comms pass. A signal takes 3 to 22 minutes to reach Earth, one way.' },
+  log_evening: { ru: 'Ужин и отчёты. Снаружи уже {t} °C.', en: 'Dinner and reports. Outside it is already {t} °C.' },
+  log_day_noeva: { ru: 'Светло, но окно для выхода слишком короткое. Экипаж работает внутри. Снаружи {t} °C.', en: 'It is light, but the walk window is too short. The crew works inside. Outside it is {t} °C.' },
+  log_storm: {
+    ru: 'Буря. Солнце превратилось в тусклое пятно: до поверхности доходит {pct} % обычного света. Выходы отменены.',
+    en: 'Storm. The sun is a dim smudge and {pct}% of the usual light reaches the ground. Walks are cancelled.'
+  },
+  log_storm_night: { ru: 'Буря. Ночь теплее обычной: пыль держит тепло. Снаружи {t} °C.', en: 'Storm. The night is warmer than usual because dust traps heat. Outside it is {t} °C.' },
+  log_flare: {
+    ru: 'Вспышка на Солнце. Экипаж в убежище под слоем грунта, выходы отменены, пока поток частиц не спадёт.',
+    en: 'Solar flare. The crew is in the shelter under a layer of soil, and walks are cancelled until the particle flux drops.'
+  },
+  log_reactor: {
+    ru: 'Реактор остановлен. Теплица и лаборатория отключены, экипаж в одном отсеке. Запас энергии {s} %.',
+    en: 'The reactor is down. Greenhouse and lab are off, the crew is in one module. Stored energy: {s}%.'
+  },
+  log_polar: { ru: 'Полярная ночь: солнце не взойдёт. Снаружи {t} °C.', en: 'Polar night: the sun will not rise. Outside it is {t} °C.' },
+  proj_title: { ru: 'Что дальше: запас энергии на 30 солов вперёд', en: 'What happens next: stored energy over 30 sols' },
+  proj_ok_reactor: { ru: 'Реактор работает: накопитель полон, база держится сколько угодно.', en: 'The reactor is running: storage stays full and the base holds indefinitely.' },
+  proj_ok_reactor_storm: {
+    ru: 'Реактор работает: накопитель полон, база держится сколько угодно. Так Curiosity пережил бурю 2018 года.',
+    en: 'The reactor is running: storage stays full and the base holds indefinitely. This is how Curiosity rode out the 2018 storm.'
+  },
+  proj_ok: { ru: 'Аварийных батарей хватает: запас не опускается ниже {min} %.', en: 'Backup solar is enough: storage never drops below {min}%.' },
+  proj_dead: {
+    ru: 'Накопитель опустеет на {sol}-й сол, в {time}. После этого жизнеобеспечение остановится.',
+    en: 'Storage runs dry on sol {sol} at {time}. After that, life support stops.'
+  },
+  proj_axis: { ru: 'солы после отказа реактора', en: 'sols after the reactor failure' },
+  proj_axis_ok: { ru: 'солы', en: 'sols' },
+  proj_blackout: { ru: 'отключение', en: 'blackout' },
+  proj_storm_end: { ru: 'буря кончилась', en: 'storm ends' },
+
+  s4: { ru: 'Толпа и алгоритм', en: 'Crowd vs. algorithm' },
+  s4_sub: { ru: 'Что выбирают люди и что остаётся от места после худшего сола.', en: 'What people choose, and what is left of a place after its worst sol.' },
+  crowd_locked: { ru: 'Сначала выберите место на карте: алгоритм отвечает после вас.', en: 'Pick a place on the map first: the algorithm answers after you.' },
+  to_map: { ru: 'К карте', en: 'Go to the map' },
+  col_site: { ru: 'Место', en: 'Place' },
+  col_worst: { ru: 'Худший сол', en: 'Worst sol' },
+  col_naive: { ru: 'Средний день', en: 'Average day' },
+  col_weak: { ru: 'Слабое звено', en: 'Weakest link' },
+  col_votes: { ru: 'Голоса', en: 'Votes' },
+  crowd_none: {
+    ru: 'Голосов пока нет. Соберите их в зале: один экран, один вопрос, полминуты на человека.',
+    en: 'No votes yet. Collect them in the room: one screen, one question, half a minute per person.'
+  },
+  crowd_sum: {
+    ru: 'Чаще всего выбирают: {site}, {votes} из {total}. Алгоритм ставит это место на {rank} из {n}.',
+    en: 'Most picked: {site}, {votes} of {total}. The algorithm ranks it {rank} of {n}.'
+  },
+  crowd_agree: { ru: 'Толпа и алгоритм сошлись: {site}, {votes} из {total} голосов.', en: 'The crowd and the algorithm agree: {site}, {votes} of {total} votes.' },
+  btn_next_vote: { ru: 'Следующий голос', en: 'Next voter' },
+  btn_reset: { ru: 'Сбросить голоса', en: 'Reset votes' },
+  btn_reset_sure: { ru: 'Точно сбросить?', en: 'Really reset?' },
+  votes_note: { ru: 'Голоса хранятся только на этом устройстве.', en: 'Votes are stored on this device only.' },
+  naive_expl: {
+    ru: '«Средний день»: среднее по показателям, как в обычном рейтинге. «Худший сол» наполовину состоит из самого слабого показателя: место не лучше своего слабого звена.',
+    en: '“Average day” is the mean of the scores, as in a usual ranking. “Worst sol” gives half its weight to the weakest score: a place is no better than its weakest link.'
+  },
+  no_ground: { ru: 'нет наземных данных', en: 'no ground data' },
+
+  s5: { ru: 'Метод и источники', en: 'Method and sources' },
+  s5_sub: {
+    ru: 'Учебная модель для хакатона. Она показывает ход рассуждения и не годится для настоящей экспедиции.',
+    en: 'A teaching model for a hackathon. It shows a line of reasoning and is not fit to plan a real expedition.'
+  },
+  m_measured_t: { ru: 'Измерено', en: 'Measured' },
+  m_measured: {
+    ru: 'Координаты и высоты площадок по MOLA. Диапазоны температур по метеоприборам миссий, округлённо. Лёд у Phoenix, радиация у Curiosity, в том числе вспышка 20 мая 2024 года. Энергия Opportunity в бурю 2018 года: 645 и 22 Вт·ч за сол.',
+    en: 'Site coordinates and elevations from MOLA. Temperature ranges from the missions’ weather instruments, rounded. Ice at Phoenix, radiation at Curiosity, including the flare of May 20, 2024. Opportunity’s energy in the 2018 storm: 645 and 22 watt-hours per sol.'
+  },
+  m_computed_t: { ru: 'Вычислено', en: 'Computed' },
+  m_computed: {
+    ru: 'Высота солнца, световой день и приход энергии считаются по орбите Марса. Пыль ослабляет выработку как e в степени −0,33·τ: коэффициент подобран по Opportunity. Давление считается по высоте, запас энергии базы шагом в четверть часа.',
+    en: 'Sun elevation, daylight and incoming energy follow from Mars’ orbit. Dust cuts array output as e to the power −0.33·τ, a factor fitted to Opportunity. Pressure follows from elevation; base energy storage is stepped every quarter hour.'
+  },
+  m_schematic_t: { ru: 'Схема и оценки', en: 'Schematic and estimated' },
+  m_schematic: {
+    ru: 'Рельеф на общей карте, слой льда, грунт вокруг базы, расстояния до целей прогулок и все числа для мест без посадок. Перед сдачей проекта замените их слоями NASA Trek, USGS и PDS.',
+    en: 'The relief on the global map, the ice layer, the ground around the base, walk-target distances and every number for places without a landing. Before submitting, replace them with layers from NASA Trek, USGS and PDS.'
+  },
+  m_assume_t: { ru: 'Допущения модели', en: 'Model assumptions' },
+  a1: { ru: 'Экипаж: {crew} человека. Реактор {r} кВт. Обычное потребление {ln} кВт, аварийное {ls} кВт.', en: 'Crew of {crew}. Reactor {r} kW. Normal demand {ln} kW, emergency demand {ls} kW.' },
+  a2: { ru: 'Аварийные солнечные батареи {a} м², КПД {eff} %. Накопитель {st} кВт·ч.', en: 'Backup solar array {a} m², {eff}% efficient. Storage {st} kWh.' },
+  a3: { ru: 'Без реактора база должна продержаться {n} солов.', en: 'The base must hold {n} sols without the reactor.' },
+  a4: { ru: 'Скафандр: {s} ч основного запаса воздуха и {r} ч резерва. Работа на месте {w} ч.', en: 'Suit: {s} h of primary air and {r} h of reserve. Time on site {w} h.' },
+  a5: {
+    ru: 'Шаг в скафандре {p} км/ч по ровному; по камням ×0,75, по песку и склону ×0,5; при аварийном возвращении ×1,3.',
+    en: 'Suited pace {p} km/h on firm flat ground; ×0.75 on rock, ×0.5 on sand and slopes; ×1.3 when hurrying back in an emergency.'
+  },
+  a6: { ru: 'Ровер-спасатель: {v} км/ч, выезжает через {d} мин; по песку и склонам не идёт.', en: 'Rescue rover: {v} km/h, rolling {d} min after the call; cannot cross sand or slopes.' },
+  a7: { ru: 'В бурю шаг и скорость ровера падают вдвое.', en: 'In a storm, walking pace and rover speed halve.' },
+  a8: { ru: 'Выход начинается через {a} ч после восхода и заканчивается за {b} ч до заката.', en: 'A walk starts {a} h after sunrise and ends {b} h before sunset.' },
+  a11: { ru: 'Вспышка на Солнце: до прихода частиц {min} мин; убежищем служит база.', en: 'Solar flare: {min} min until the particles arrive; the base is the shelter.' },
+  a12: {
+    ru: 'Маршрут: самый быстрый путь по сетке {n}×{n} клеток вокруг базы. Обрывы непроходимы; ровер не идёт по песку и склонам.',
+    en: 'Route: the quickest path over a {n}×{n} grid around the base. Cliffs are impassable; the rover cannot cross sand or slopes.'
+  },
+  a9: {
+    ru: 'Оценка места: вода, зима без реактора, прогулки и посадка, каждая от 0 до 100. Худший сол равен половине минимума плюс половине среднего.',
+    en: 'Site score: water, winter without the reactor, Marswalks and landing, each 0 to 100. Worst sol equals half the minimum plus half the mean.'
+  },
+  a10: {
+    ru: 'Вода: открытый или вскрытый лёд 100, лёд по орбитальным данным 85, иней 40, сульфаты 35, глины 25–30, обычный грунт 15.',
+    en: 'Water: exposed or excavated ice 100, ice inferred from orbit 85, frost 40, sulfates 35, clays 25–30, ordinary soil 15.'
+  },
+  m_sources_t: { ru: 'Источники NASA и USGS', en: 'NASA and USGS sources' },
+  footer: {
+    ru: 'Прототип для NASA Space Apps Challenge 2026, задача Interplanetary Survival Guide: Martian Map. Сделан с помощью ИИ-ассистента. Данные миссий принадлежат NASA и USGS; сайт не связан с NASA.',
+    en: 'A prototype for the NASA Space Apps Challenge 2026, challenge Interplanetary Survival Guide: Martian Map. Built with an AI assistant. Mission data belongs to NASA and USGS; this site is not affiliated with NASA.'
+  }
+};
+
+const SOURCES = [
+  ['https://trek.nasa.gov/mars/', { ru: 'NASA Mars Trek: мозаики Viking и MOLA, слои миссий', en: 'NASA Mars Trek: Viking and MOLA mosaics, mission layers' }],
+  ['https://astrogeology-usgs.hub.arcgis.com/pages/interactive-maps-mars', { ru: 'USGS Astrogeology: интерактивные карты Марса', en: 'USGS Astrogeology: interactive maps of Mars' }],
+  ['https://science.nasa.gov/resource/curiositys-proposed-path-up-mount-sharp/', { ru: 'Маршрут Curiosity на гору Шарп', en: 'Curiosity’s proposed path up Mount Sharp' }],
+  ['https://mars.nasa.gov/mars2020/multimedia/raw-images/', { ru: 'Сырые снимки Perseverance', en: 'Perseverance raw images' }],
+  ['https://worldview.earthdata.nasa.gov/', { ru: 'NASA Worldview: образец послойной карты, сделанный для Земли', en: 'NASA Worldview: the model of a layered map, made for Earth' }],
+  ['https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/', { ru: 'JPL: Opportunity в пыльной буре 2018 года', en: 'JPL: Opportunity in the 2018 dust storm' }],
+  ['https://www.nasa.gov/?p=670127', { ru: 'NASA: солнечная буря на Марсе, май 2024 года', en: 'NASA: the solar storm at Mars, May 2024' }],
+  ['https://swim.psi.edu/', { ru: 'SWIM: карты подповерхностного льда', en: 'SWIM: subsurface water ice mapping' }],
+  ['https://pds.nasa.gov/', { ru: 'Planetary Data System: архив данных миссий', en: 'Planetary Data System: the mission data archive' }]
+];
+
+/* Short names for labels on the walk map. */
+const SHORT = {
+  trench: { ru: 'Траншеи', en: 'Trenches' }, bigjoe: { ru: 'Big Joe', en: 'Big Joe' },
+  frost: { ru: 'Иней', en: 'Frost' }, troughs: { ru: 'Ложбины', en: 'Troughs' },
+  rockgarden: { ru: 'Сад камней', en: 'Rock Garden' }, twinpeaks: { ru: 'Twin Peaks', en: 'Twin Peaks' }, bigcrater: { ru: 'Big Crater', en: 'Big Crater' },
+  bonneville: { ru: 'Бонневиль', en: 'Bonneville' }, westspur: { ru: 'West Spur', en: 'West Spur' }, husband: { ru: 'Husband Hill', en: 'Husband Hill' }, homeplate: { ru: 'Home Plate', en: 'Home Plate' },
+  endurance: { ru: 'Эндьюранс', en: 'Endurance' }, heatshield: { ru: 'Метеорит', en: 'Meteorite' }, purgatory: { ru: 'Purgatory', en: 'Purgatory' }, victoria: { ru: 'Виктория', en: 'Victoria' }, endeavour: { ru: 'Индевор', en: 'Endeavour' },
+  icetrench: { ru: 'Лёд', en: 'Ice' }, polygons: { ru: 'Полигоны', en: 'Polygons' }, heimdal: { ru: 'Хеймдал', en: 'Heimdal' },
+  yellowknife: { ru: 'Йеллоунайф', en: 'Yellowknife Bay' }, kimberley: { ru: 'Кимберли', en: 'Kimberley' }, pahrump: { ru: 'Гора Шарп', en: 'Mount Sharp' }, bagnold: { ru: 'Дюны Багнольд', en: 'Bagnold Dunes' },
+  mole: { ru: 'Скважина HP³', en: 'HP³ hole' }, seismic: { ru: 'Сейсмопрофиль', en: 'Seismic line' },
+  seitah: { ru: 'Сеита', en: 'Séítah' }, kodiak: { ru: 'Кодиак', en: 'Kodiak' }, delta: { ru: 'Three Forks', en: 'Three Forks' }, neretva: { ru: 'Cheyava Falls', en: 'Cheyava Falls' }, rim: { ru: 'Lookout Hill', en: 'Lookout Hill' },
+  borehole: { ru: 'Скважина', en: 'Borehole' }, layers: { ru: 'Слоистые породы', en: 'Layered rocks' }, caldera: { ru: 'Кальдера', en: 'Caldera' }, dome: { ru: 'Ледяной купол', en: 'Ice dome' }
+};
+/* ================= PAGE ================= */
+(() => {
+'use strict';
+const M = Model;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const mem = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage can be unavailable; the page works without it */ } }
+};
+
+let LANG = mem.get('ws.lang', null) || ((navigator.language || 'en').toLowerCase().indexOf('ru') === 0 ? 'ru' : 'en');
+const t = (k, v) => {
+  const e = T[k]; let s = e ? (e[LANG] !== undefined ? e[LANG] : e.en) : k;
+  if (v) for (const key in v) s = s.split('{' + key + '}').join(v[key]);
+  return s;
+};
+const L = o => o ? (o[LANG] !== undefined ? o[LANG] : o.en) : '';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const nf = (n, d = 0) => {
+  const a = Math.abs(n);
+  const s = a.toLocaleString(LANG === 'ru' ? 'ru-RU' : 'en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  return (n < 0 && Number(a.toFixed(d)) !== 0 ? '−' : '') + s;
+};
+const pad = n => String(n).padStart(2, '0');
+const clock = h => { let m = Math.round(h * 60); m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+const hm = h => {
+  const m = Math.round(h * 60), hh = Math.floor(m / 60), mm = m % 60, out = [];
+  if (hh) out.push(hh + ' ' + t('u_h'));
+  if (mm || !hh) out.push(mm + ' ' + t('u_min'));
+  return out.join(' ');
+};
+const fmtD = d => d < 0.02 ? Math.round(d * 1000) + ' ' + t('u_m')
+  : d < 0.95 ? Math.round(d * 100) * 10 + ' ' + t('u_m')
+  : nf(d, d >= 10 ? 0 : 1) + ' ' + t('u_km');
+const plural = (n, forms) => {
+  if (LANG !== 'ru') return n === 1 ? forms.en[0] : forms.en[1];
+  const a = Math.abs(n) % 100, b = a % 10;
+  return a > 10 && a < 20 ? forms.ru[2] : b === 1 ? forms.ru[0] : b >= 2 && b <= 4 ? forms.ru[1] : forms.ru[2];
+};
+const SOLS = { ru: ['сол', 'сола', 'солов'], en: ['sol', 'sols'] };
+const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- state ---------- */
+const S = {
+  site: 'meridiani', target: 'victoria',
+  storm: false, stormClass: 'y2018', flare: false, reactor: false, offset: false, offsetKm: 3, offsetBrg: 300, wlayer: 'ground',
+  ls: 190, layer: 'relief', hour: 13, playing: false,
+  voted: null, revealed: false, live: false, base: 'mola'
+};
+let votes = mem.get('ws.votes', {});
+const site = () => SITES.find(s => s.id === S.site);
+const cond = () => ({ ls: S.ls, flare: S.flare, storm: S.storm, stormClass: S.stormClass, reactor: S.reactor, offset: S.offset, offsetKm: S.offsetKm, offsetBrg: S.offsetBrg });
+const RANK = M.ranking(SITES);
+const rankOf = id => RANK.find(r => r.site.id === id);
+const byLon = [...SITES].sort((a, b) => a.lon - b.lon);
+
+/* ================= MAP ================= */
+const mulberry32 = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let x = Math.imul(a ^ a >>> 15, 1 | a); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+const makeNoise = seed => {
+  const N = 256, g = new Float32Array(N * N), r = mulberry32(seed);
+  for (let i = 0; i < g.length; i++) g[i] = r() * 2 - 1;
+  return (x, y, period) => {
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const x0 = ((xi % period) + period) % period, x1 = (x0 + 1) % period, y0 = ((yi % N) + N) % N, y1 = (y0 + 1) % N;
+    const a = g[y0 * N + x0], b = g[y0 * N + x1], c = g[y1 * N + x0], d = g[y1 * N + x1];
+    const top = a + (b - a) * sx, bot = c + (d - c) * sx;
+    return top + (bot - top) * sy;
+  };
+};
+const gauss = (lon, lat, l0, p0, sl, sp, amp) => {
+  let dl = lon - l0; dl = ((dl + 540) % 360) - 180;
+  const dp = lat - p0;
+  return amp * Math.exp(-(dl * dl) / (2 * sl * sl) - (dp * dp) / (2 * sp * sp));
+};
+const VALLES = [[-98, -7], [-86, -7.5], [-73, -11], [-61, -13.5], [-48, -13.5], [-40, -9], [-36, -2]];
+const valles = (lon, lat) => {
+  if (lon < -106 || lon > -28 || lat < -21 || lat > 5) return 0;
+  let best = 1e9;
+  for (let i = 0; i < VALLES.length - 1; i++) {
+    const x1 = VALLES[i][0], y1 = VALLES[i][1], dx = VALLES[i + 1][0] - x1, dy = VALLES[i + 1][1] - y1;
+    let u = ((lon - x1) * dx + (lat - y1) * dy) / (dx * dx + dy * dy); u = Math.max(0, Math.min(1, u));
+    const d = Math.hypot(x1 + u * dx - lon, y1 + u * dy - lat);
+    if (d < best) best = d;
+  }
+  const w = lon > -47 ? 2.4 : 1.7;
+  return -3.6 * Math.exp(-(best * best) / (2 * w * w));
+};
+const tharsis = (lon, lat) => gauss(lon, lat, -105, -2, 26, 24, 5.5);
+/* A schematic of Martian topography: the north-south dichotomy plus the big named features. Not MOLA data. */
+const elevKm = (lon, lat) => {
+  const b = 12 + 26 * Math.cos((lon - 20) * M.DEG);
+  let h = 1.6 - 5.2 / (1 + Math.exp(-(lat - b) / 5));
+  h += tharsis(lon, lat);
+  h += gauss(lon, lat, -133.8, 18.65, 3.4, 3.2, 21);    // Olympus Mons
+  h += gauss(lon, lat, -104.1, 11.9, 2.3, 2.2, 8.5);    // Ascraeus Mons
+  h += gauss(lon, lat, -112.96, 1.48, 2.1, 2.0, 7);     // Pavonis Mons
+  h += gauss(lon, lat, -120.1, -8.35, 2.7, 2.6, 8.5);   // Arsia Mons
+  h += gauss(lon, lat, -109.6, 40.5, 9, 7, 5.5);        // Alba Mons
+  h += gauss(lon, lat, 147.2, 25, 3, 3, 10) + gauss(lon, lat, 150, 22, 14, 12, 2.6); // Elysium
+  h += gauss(lon, lat, 70, -42, 15, 10, -8.5) + gauss(lon, lat, 70, -42, 24, 17, 1.6); // Hellas and its rim
+  h += gauss(lon, lat, -44, -50, 8, 7, -4.2);           // Argyre
+  h += gauss(lon, lat, 87, 13, 8, 7, -3.2);             // Isidis
+  h += gauss(lon, lat, 117, 45, 22, 14, -1.2);          // Utopia
+  h += gauss(lon, lat, -40, 24, 14, 12, -2.4);          // Chryse
+  h += valles(lon, lat);
+  if (lat > 78) { const k = Math.min(1, (lat - 78) / 8); h += 2.4 * k * k * (3 - 2 * k); }
+  if (lat < -72) { const k = Math.min(1, (-72 - lat) / 10); h += 2.6 * k * k * (3 - 2 * k); }
+  return h;
+};
+const RAMP = [[-8, [92, 98, 104]], [-5.5, [124, 128, 128]], [-3.6, [160, 158, 146]], [-2, [190, 180, 152]], [0, [211, 189, 148]],
+  [1.8, [203, 164, 117]], [3.6, [181, 131, 88]], [6.5, [154, 103, 68]], [11, [168, 128, 102]], [17, [212, 193, 177]], [22, [241, 233, 225]]];
+const ramp = h => {
+  if (h <= RAMP[0][0]) return RAMP[0][1];
+  for (let i = 1; i < RAMP.length; i++) if (h <= RAMP[i][0]) {
+    const a = RAMP[i - 1], b = RAMP[i], k = (h - a[0]) / (b[0] - a[0]);
+    return [a[1][0] + (b[1][0] - a[1][0]) * k, a[1][1] + (b[1][1] - a[1][1]) * k, a[1][2] + (b[1][2] - a[1][2]) * k];
+  }
+  return RAMP[RAMP.length - 1][1];
+};
+function buildRelief() {
+  const cv = $('#relief'), W = cv.width, H = cv.height, ctx = cv.getContext('2d');
+  const hgt = new Float32Array(W * H), cap = new Float32Array(W * H), noise = makeNoise(7);
+  for (let y = 0; y < H; y++) {
+    const lat = 90 - (y + .5) / H * 180, v = (y + .5) / H;
+    for (let x = 0; x < W; x++) {
+      const lon = -180 + (x + .5) / W * 360, u = (x + .5) / W;
+      const base = elevKm(lon, lat);
+      const f = noise(u * 16, v * 8, 16) * .5 + noise(u * 32, v * 16, 32) * .27 + noise(u * 64, v * 32, 64) * .15 + noise(u * 128, v * 64, 128) * .08;
+      hgt[y * W + x] = base + f * (base > -1 ? 0.6 : 0.22);
+      const edge = f * 5;
+      cap[y * W + x] = lat > 79 + edge ? Math.min(1, (lat - 79 - edge) / 3) : lat < -82 + edge ? Math.min(1, (-82 + edge - lat) / 3) : 0;
+    }
+  }
+  const rnd = mulberry32(42);
+  for (let i = 0; i < 620; i++) {
+    const lat = Math.asin(2 * rnd() - 1) / M.DEG, lon = -180 + 360 * rnd(), u = rnd(), keep = rnd();
+    if (Math.abs(lat) > 76) continue;
+    if (elevKm(lon, lat) < -1.5 && keep > 0.2) continue;
+    if (tharsis(lon, lat) > 1.6 && keep > 0.1) continue;
+    const r = 0.45 + 3.3 * u * u * u, depth = 0.22 + 0.17 * r;
+    const cy = (90 - lat) / 180 * H, cx = (lon + 180) / 360 * W, pyDeg = 180 / H, pxDeg = 360 / W, cosL = Math.max(0.25, Math.cos(lat * M.DEG));
+    const ry = Math.ceil(1.7 * r / pyDeg), rx = Math.ceil(1.7 * r / (pxDeg * cosL));
+    for (let dy = -ry; dy <= ry; dy++) {
+      const yy = Math.round(cy) + dy; if (yy < 0 || yy >= H) continue;
+      for (let dx = -rx; dx <= rx; dx++) {
+        const xx = ((Math.round(cx) + dx) % W + W) % W;
+        const rho = Math.hypot(dx * pxDeg * cosL, dy * pyDeg) / r;
+        if (rho < 1) hgt[yy * W + xx] -= depth * (1 - rho * rho);
+        else if (rho < 1.7) hgt[yy * W + xx] += 0.32 * depth * Math.exp(-Math.pow((rho - 1) / 0.24, 2));
+      }
+    }
+  }
+  const img = ctx.createImageData(W, H), px = img.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, xl = (x + W - 1) % W, xr = (x + 1) % W, yu = Math.max(0, y - 1), yd = Math.min(H - 1, y + 1);
+      const sx = hgt[y * W + xr] - hgt[y * W + xl], sy = hgt[yd * W + x] - hgt[yu * W + x];
+      const shade = 1 + Math.max(-0.36, Math.min(0.3, (sx + sy) * 0.55));
+      let c = ramp(hgt[i]);
+      const k = cap[i];
+      if (k > 0) c = [c[0] + (244 - c[0]) * k, c[1] + (243 - c[1]) * k, c[2] + (238 - c[2]) * k];
+      px[i * 4] = Math.min(255, c[0] * shade); px[i * 4 + 1] = Math.min(255, c[1] * shade); px[i * 4 + 2] = Math.min(255, c[2] * shade); px[i * 4 + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const QREF = 6.4; // kWh/m2/sol, the planet-wide clear-sky maximum (southern polar summer)
+function drawOverlay() {
+  const cv = $('#overlay'), W = cv.width, H = cv.height, ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  if (S.layer === 'sun') {
+    const tau = M.tauOf(cond());
+    for (let y = 0; y < H; y++) {
+      const lat = 90 - (y + .5) / H * 180, q = M.dailyKWh(lat, S.ls, tau);
+      ctx.fillStyle = 'rgba(12,16,28,' + (0.86 * Math.pow(1 - Math.min(1, q / QREF), 0.85)).toFixed(3) + ')';
+      ctx.fillRect(0, y, W, 1);
+    }
+  } else if (S.layer === 'ice') {
+    const band = (latA, latB, gap, alpha, tint) => {
+      const yA = (90 - latA) / 180 * H, yB = (90 - latB) / 180 * H;
+      ctx.save(); ctx.beginPath(); ctx.rect(0, yA, W, yB - yA); ctx.clip();
+      ctx.fillStyle = 'rgba(150,200,245,' + tint + ')'; ctx.fillRect(0, yA, W, yB - yA);
+      ctx.strokeStyle = 'rgba(22,84,160,' + alpha + ')'; ctx.lineWidth = 1.3; ctx.beginPath();
+      for (let x = -H; x < W; x += gap) { ctx.moveTo(x, H); ctx.lineTo(x + H, 0); }
+      ctx.stroke(); ctx.restore();
+    };
+    band(90, 60, 6, 0.8, 0.34); band(60, 35, 13, 0.6, 0.16); band(-35, -60, 13, 0.6, 0.16); band(-60, -90, 6, 0.8, 0.34);
+  }
+}
+
+const mx = lon => (lon + 180) / 360 * 1000, my = lat => (90 - lat) / 180 * 500;
+function renderMapSvg() {
+  let g = '';
+  for (let lat = -60; lat <= 60; lat += 30) {
+    g += `<line class="grat${lat === 0 ? ' grat-eq' : ''}" x1="0" x2="1000" y1="${my(lat)}" y2="${my(lat)}"/>`;
+    g += `<text class="grat-t" x="7" y="${my(lat) - 4}">${Math.abs(lat)}°${lat ? ' ' + (lat > 0 ? t('u_N') : t('u_S')) : ''}</text>`;
+  }
+  for (let lon = -120; lon <= 120; lon += 60) {
+    g += `<line class="grat" x1="${mx(lon)}" x2="${mx(lon)}" y1="0" y2="500"/>`;
+    g += `<text class="grat-t" x="${mx(lon) + 4}" y="493">${(lon + 360) % 360}° ${t('u_E')}</text>`;
+  }
+  if (S.layer === 'sun') {
+    const tau = M.tauOf(cond());
+    for (const lat of [75, 45, 15, -15, -45, -75])
+      g += `<text class="sun-t" x="993" y="${my(lat) + 4}" text-anchor="end">${nf(M.dailyKWh(lat, S.ls, tau), 1)}</text>`;
+  }
+  for (const s of SITES) {
+    const cls = ['mk', s.kind, s.id === S.site ? 'sel' : '', s.id === S.voted ? 'mine' : ''].join(' ');
+    const dot = s.kind === 'ground' ? '<circle class="dot" r="5.6"/>' : '<rect class="dot" x="-4.6" y="-4.6" width="9.2" height="9.2" transform="rotate(45)"/>';
+    g += `<g class="${cls}" data-id="${s.id}" tabindex="0" role="button" aria-label="${esc(L(s.name) + '. ' + L(s.teaser))}" transform="translate(${mx(s.lon).toFixed(1)},${my(s.lat).toFixed(1)})">` +
+      `<circle class="hit" r="17"/><circle class="ring" r="11.5"/>${dot}` +
+      `<text x="${s.label[0]}" y="${s.label[1]}" text-anchor="${s.label[2]}">${esc(L(s.short))}</text></g>`;
+  }
+  $('#mapsvg').innerHTML = g;
+}
+function renderMapFoot() {
+  $('#mapNote').textContent = S.live ? t('map_note_live', { name: S.base === 'mola' ? 'MOLA' : 'Viking MDIM 2.1' }) : t('map_note_schema');
+  const tau = M.tauOf(cond());
+  let lg = '';
+  if (S.layer === 'sun') lg = `<span class="legend-bar"><i style="background:linear-gradient(90deg,#0c101c,rgba(12,16,28,0))"></i>${t('lg_sun', { max: nf(QREF, 1), tau: nf(tau, 1) })}</span>`;
+  if (S.layer === 'ice') lg = `<span class="legend-sw"><i style="background:repeating-linear-gradient(135deg,#1654a0 0 1.5px,#b9d9f6 1.5px 5px)"></i>${t('lg_ice_a')}</span>` +
+    `<span class="legend-sw"><i style="background:repeating-linear-gradient(135deg,#1654a0 0 1.5px,#dbe9f6 1.5px 9px)"></i>${t('lg_ice_b')}</span><span>${t('lg_ice_note')}</span>`;
+  $('#layerLegend').innerHTML = lg;
+  const hz = $('#haze'), note = $('#hazeNote');
+  const a = S.storm ? { regional: 0.3, y2007: 0.46, y2018: 0.64 }[S.stormClass] : 0;
+  hz.style.backgroundColor = `rgb(150 106 62 / ${a})`;
+  note.hidden = !S.storm; note.textContent = t('haze', { tau: nf(tau, 1) });
+}
+/* Real NASA mosaics. They load only where the page is allowed to fetch remote images; otherwise the schematic stays. */
+const TREK = {
+  mola: 'https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0/default/default028mm/',
+  viking: 'https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/'
+};
+function setBase(name) {
+  S.base = name;
+  const box = $('#tiles'); box.innerHTML = '';
+  for (let row = 0; row < 4; row++) for (let col = 0; col < 8; col++) {
+    const im = document.createElement('img'); im.alt = ''; im.decoding = 'async';
+    im.onerror = () => { im.style.visibility = 'hidden'; };
+    im.src = TREK[name] + '2/' + row + '/' + col + '.jpg';
+    box.appendChild(im);
+  }
+  box.hidden = false; $('#baseSeg').hidden = false;
+  $$('#baseSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.base === name)));
+  renderMapFoot();
+}
+function probeTiles() {
+  const im = new Image();
+  im.onload = () => { S.live = true; setBase(S.base); };
+  im.onerror = () => {};
+  im.src = TREK.mola + '0/0/0.jpg';
+}
+
+/* ================= CHOOSE ================= */
+function renderChoose() {
+  $('#voteRow').innerHTML = S.revealed
+    ? `<strong>${t('voted_prompt')}</strong>`
+    : `<strong>${t('vote_prompt')}</strong><button type="button" class="linkbtn" id="skipVote">${t('skip_vote')}</button>`;
+  $('#chips').innerHTML = byLon.map(s =>
+    `<button type="button" class="chip" data-id="${s.id}" aria-pressed="${s.id === S.site && S.revealed}">` +
+    `<i class="glyph ${s.kind}"></i><b>${esc(L(s.name))}${s.id === S.voted ? `<span class="tag">${t('mine')}</span>` : ''}</b>` +
+    `<span class="tz">${esc(L(s.teaser))}</span></button>`).join('');
+  const box = $('#reveal');
+  box.hidden = !S.revealed;
+  if (S.revealed) {
+    const id = S.voted || RANK[0].site.id, r = rankOf(id);
+    const txt = t(S.voted ? 'reveal' : 'reveal_skip', { site: esc(L(r.site.name)), rank: r.rankWorst, n: SITES.length, weak: t('weak_' + r.weak) });
+    box.innerHTML = `<p>${txt}</p><span style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#site">${t('reveal_btn')}</a><a class="btn ghost" style="color:#F1F3EE" href="#crowd">${t('reveal_btn2')}</a></span>`;
+  }
+}
+function pick(id, fromVote) {
+  if (fromVote && !S.revealed) {
+    votes[id] = (votes[id] || 0) + 1; mem.set('ws.votes', votes);
+    S.voted = id; S.revealed = true;
+    S.site = id; S.target = site().focus;
+    renderAll();
+    $('#reveal').scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
+    return;
+  }
+  S.site = id; S.target = site().focus;
+  renderAll();
+}
+
+/* ================= STRIP ================= */
+function renderConsole() {
+  const opt = k => SITES.filter(s => s.kind === k).map(s => `<option value="${s.id}"${s.id === S.site ? ' selected' : ''}>${esc(L(s.name))}</option>`).join('');
+  $('#siteSelect').innerHTML = `<optgroup label="${esc(t('legend_ground'))}">${opt('ground')}</optgroup><optgroup label="${esc(t('legend_orbital'))}">${opt('orbital')}</optgroup>`;
+  $('#stormClass').innerHTML = ['regional', 'y2007', 'y2018'].map(k => `<option value="${k}"${k === S.stormClass ? ' selected' : ''}>${t('storm_' + k)}</option>`).join('');
+  $('#lampStorm').setAttribute('aria-pressed', String(S.storm));
+  $('#lampReactor').setAttribute('aria-pressed', String(S.reactor));
+  $('#lampFlare').setAttribute('aria-pressed', String(S.flare));
+  $('#lampFlareSub').textContent = t('st_flare_sub', { min: Math.round(M.EVA.flareWarnH * 60) });
+  $('#flareNote').textContent = t('flare_note');
+  $('#lampOffset').setAttribute('aria-pressed', String(S.offset));
+  $('#lampStormSub').textContent = t('st_storm_sub', { tau: nf(M.STORMS[S.stormClass].tau, 1) });
+  $('#lampOffsetSub').textContent = t('st_offset_sub', { km: S.offsetKm });
+  $('#reactorNote').textContent = t('reactor_note', { a: M.BASE.loadSurvival, b: M.BASE.loadNominal });
+  $('#offsetKm').value = S.offsetKm; $('#ls').value = S.ls;
+  $('#lsOut').textContent = `Ls ${S.ls}° · ${t('se_' + M.seasonKey(S.ls))}`;
+  document.body.classList.toggle('storm', S.storm);
+}
+
+/* ================= 1. SITE ================= */
+function renderSite() {
+  const s = site(), c = cond(), tau = M.tauOf(c), r = rankOf(s.id), st = M.sunTimes(s.lat, S.ls);
+  $('#siteTitle').textContent = L(s.name);
+  $('#siteSub').textContent = L(s.mission);
+  const tr = M.tempRange(s, S.ls, tau), ex = M.extremeLs(s.lat);
+  const p = M.pressure(s.elev);
+  const land = s.hazard < 0.2 ? 'land_flat' : s.hazard < 0.4 ? 'land_rocks' : s.hazard < 0.6 ? 'land_rough' : 'land_bad';
+  const day = st.polarNight ? t('polar_night') : st.polarDay ? t('polar_day') : hm(st.len * M.MARS.solH / 24);
+  const hot = S.storm ? ' class="changed"' : '';
+  const row = (k, v, src) => `<tr><th scope="row">${t(k)}</th><td><span class="v">${v}</span><span class="src">${src}</span></td></tr>`;
+  $('#facts').innerHTML =
+    row('p_coords', `${nf(Math.abs(s.lat), 2)}° ${s.lat >= 0 ? t('u_N') : t('u_S')}, ${nf((s.lon + 360) % 360, 2)}° ${t('u_E')}`, t('src_mola')) +
+    row('p_elev', `${nf(s.elev, 1)} ${t('u_km')}`, t('src_mola')) +
+    row('p_press', t('press_v', { p: nf(p / 100, 1), pct: nf(p / 101325 * 100, 2) }), t('src_press')) +
+    row('p_temp', `<span${hot}>${t('temp_v', { a: nf(Math.round(tr.tmin)), b: nf(Math.round(tr.tmax)) })}</span>`, (s.tsrc ? L(s.tsrc) : t('src_est')) + ', ' + t('src_season')) +
+    row('p_day', day, t('src_orbit')) +
+    row('p_sun', `<span${hot}>${t('sun_v', { now: nf(M.dailyKWh(s.lat, S.ls, tau), 2), min: nf(M.dailyKWh(s.lat, ex.worst, M.MARS.tauClear), 2) })}</span>`, t('src_orbit')) +
+    row('p_water', esc(L(s.water)), L(s.wsrc)) +
+    row('p_rad', t('rad_v', { v: nf(M.radiation(s.elev), 2) }) + (S.flare ? ` <span class="changed">${t('rad_flare')}</span>` : ''), t('src_rad') + (S.flare ? '; ' + t('src_flare') : '')) +
+    row('p_land', `${t(land)}; ${t(s.elev > 0.5 ? 'land_thin' : 'land_air')}`, t('src_mola') + (s.kind === 'orbital' ? '; ' + t('src_est') : ''));
+
+  const names = { water: 'c_water', power: 'c_power', walk: 'c_walk', land: 'c_land' };
+  const bars = ['water', 'power', 'walk', 'land'].filter(k => r.comps[k] !== undefined).map(k =>
+    `<div class="bar${k === r.weak ? ' weak' : ''}"><span>${t(names[k])}${k === r.weak ? `<span class="tag">${t('weak_tag')}</span>` : ''}</span>` +
+    `<div class="track"><div class="fill" style="width:${Math.max(1, r.comps[k]).toFixed(0)}%"></div></div><span class="val">${nf(r.comps[k])}</span></div>`).join('');
+  const hold = Number.isFinite(r.hold) ? t('hold_n', { n: Math.floor(r.hold), sols: plural(Math.floor(r.hold), SOLS) }) : t('hold_inf');
+  $('#scorePanel').innerHTML =
+    `<h3>${t('score_title')}</h3><div class="scorehead"><span class="big">${nf(r.worst)}</span><span class="muted">${t('score_of', { rank: r.rankWorst, n: SITES.length })}</span></div>` +
+    `<div class="bars">${bars}</div><p class="small muted" style="margin:12px 0 0">${hold}${r.comps.walk === undefined ? ' ' + t('no_walk_score') : ''} ${t('score_naive', { v: nf(r.naive) })}.</p>`;
+  $('#lesson').innerHTML = `<h3>${esc(L(s.lesson.t))}</h3><p>${esc(L(s.lesson.x))}</p>`;
+  const trek = `https://trek.nasa.gov/mars/#v=0.1&x=${s.lon}&y=${s.lat}&z=6&p=urn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A104905&d=`;
+  $('#siteLinks').innerHTML = `<a href="${trek}" target="_blank" rel="noopener">${t('link_trek')}</a>` +
+    `<a href="https://astrogeology-usgs.hub.arcgis.com/pages/interactive-maps-mars" target="_blank" rel="noopener">${t('link_usgs')}</a>` +
+    (s.extraLink ? `<a href="${s.extraLink.url}" target="_blank" rel="noopener">${esc(L(s.extraLink.t))}</a>` : '');
+}
+
+/* ================= 2. MARSWALK ================= */
+const WP = 560;
+const TCOL = { plain: [233, 226, 208], rocky: [206, 194, 173], sand: [229, 194, 124], slope: [181, 146, 112], cliff: [88, 78, 72] };
+const TIME_RAMP = [[0, [46, 150, 72]], [1, [244, 204, 72]], [2, [216, 84, 60]], [3.2, [112, 58, 58]]];
+const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const rampAt = (stops, v) => {
+  if (v <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) return mix3(stops[i - 1][1], stops[i][1], (v - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]));
+  return stops[stops.length - 1][1];
+};
+/* Two passes of corner cutting turn a staircase of grid cells into a line a person could walk. */
+const smoothPath = pts => {
+  let p = pts;
+  for (let k = 0; k < 2 && p.length > 3; k++) {
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; q.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); }
+    q.push(p[p.length - 1]); p = q;
+  }
+  return p;
+};
+/* The ground, and on top of it where one failure is still survivable (green line) and where the air lasts on plan (blue line). */
+function drawWalkRaster(s, c, F) {
+  const cv = $('#walkcv'), P = cv.width, ctx = cv.getContext('2d'), img = ctx.createImageData(P, P), px = img.data;
+  const W = F.W, E = M.EVA, sf = c.storm ? E.stormFactor : 1, lim = M.limitH(c), rover = !c.reactor, step = 2 * W / P;
+  if (!F.raster) {
+    F.raster = new Uint8Array(P * P);
+    for (let j = 0; j < P; j++) for (let i = 0; i < P; i++) F.raster[j * P + i] = M.CLASSES.indexOf(M.classAt(s, -W + (i + .5) * step, W - (j + .5) * step));
+  }
+  const zone = new Uint8Array(P * P), time = S.wlayer === 'time';
+  for (let j = 0; j < P; j++) {
+    const y = W - (j + .5) * step;
+    for (let i = 0; i < P; i++) {
+      const o = j * P + i, x = -W + (i + .5) * step, k = M.CLASSES[F.raster[o]];
+      const tw = M.sample(F, F.walk.time, x, y), tr = rover ? M.sample(F, F.rov.time, x, y) : M.BIG;
+      const tSafe = Math.min(tw / (E.hurry * sf), E.dispatchH + tr / sf);
+      const z = tSafe <= lim ? 2 : tw * (1 + 1 / sf) + E.workH <= E.suitH ? 1 : 0;
+      zone[o] = z;
+      let col = TCOL[k], sh = 1;
+      if (k === 'rocky') { if ((((i * 73856093) ^ (j * 19349663)) & 15) === 0) sh = .84; }
+      else if (k === 'sand') sh = 1 + .07 * Math.sin(i * .55 + j * .9);
+      else if (k === 'slope') { if ((i + j) % 7 === 0) sh = .86; }
+      else if (k === 'cliff') { if ((i - j + 4096) % 5 === 0) sh = .8; }
+      if (time) col = tSafe > 1e6 ? mix3(col, [84, 84, 88], .7) : mix3(col, rampAt(TIME_RAMP, tSafe / lim), .78);
+      else if (z === 2) col = mix3(col, [60, 170, 70], .2);
+      else if (z === 0) col = mix3(col, [132, 134, 136], .42);
+      px[o * 4] = col[0] * sh; px[o * 4 + 1] = col[1] * sh; px[o * 4 + 2] = col[2] * sh; px[o * 4 + 3] = 255;
+    }
+  }
+  const paint = (o, c3) => { px[o * 4] = c3[0]; px[o * 4 + 1] = c3[1]; px[o * 4 + 2] = c3[2]; };
+  for (let j = 0; j < P - 1; j++) for (let i = 0; i < P - 1; i++) {
+    const o = j * P + i, a = zone[o], b = zone[o + 1], d = zone[o + P];
+    if (a === b && a === d) continue;
+    const safeEdge = Math.max(a, b, d) === 2;
+    if (!safeEdge && ((i + j) >> 2) % 3 === 2) continue; // the air limit is dashed
+    const c3 = safeEdge ? [8, 132, 8] : [36, 104, 200];
+    paint(o, c3); paint(o + 1, c3); paint(o + P, c3);
+  }
+  ctx.putImageData(img, 0, 0);
+}
+const mark = (v, x, y) => v === 'go' ? `<circle cx="${x}" cy="${y}" r="6.5" fill="var(--go)" stroke="var(--sheet)" stroke-width="2"/>`
+  : v === 'risk' ? `<path d="M${x} ${y - 8.5} L${x + 8.5} ${y + 6.5} L${x - 8.5} ${y + 6.5} Z" fill="var(--caution)" stroke="var(--sheet)" stroke-width="2" stroke-linejoin="round"/>`
+  : `<path d="M${x - 6} ${y - 6} L${x + 6} ${y + 6} M${x + 6} ${y - 6} L${x - 6} ${y + 6}" stroke="var(--sheet)" stroke-width="7" stroke-linecap="round"/><path d="M${x - 6} ${y - 6} L${x + 6} ${y + 6} M${x + 6} ${y - 6} L${x - 6} ${y + 6}" stroke="var(--nogo)" stroke-width="3.6" stroke-linecap="round"/>`;
+function renderWalk() {
+  const s = site(), c = cond(), R = M.radii(c);
+  $('#walkSub').textContent = t(s.kind === 'ground' ? 'walk_sub_ground' : 'walk_sub_orbital');
+  const evals = s.targets.map(tg => ({ tg, e: M.evalTarget(s, tg, c) }));
+  if (!s.targets.some(tg => tg.id === S.target)) S.target = s.focus;
+
+  /* map */
+  const F = M.field(s, c);
+  drawWalkRaster(s, c, F);
+  const kx = x => WP / 2 + x / F.W * WP / 2, ky = y => WP / 2 - y / F.W * WP / 2;
+  const B = [kx(F.bx), ky(F.by)];
+  const pos = e => {
+    let X = kx(e.x), Y = ky(e.y), far = false;
+    if (!e.inside || X < 14 || X > WP - 14 || Y < 14 || Y > WP - 14) {
+      const dx = X - B[0], dy = Y - B[1]; let k = 1;
+      if (dx > 0) k = Math.min(k, (WP - 18 - B[0]) / dx); if (dx < 0) k = Math.min(k, (18 - B[0]) / dx);
+      if (dy > 0) k = Math.min(k, (WP - 18 - B[1]) / dy); if (dy < 0) k = Math.min(k, (18 - B[1]) / dy);
+      X = B[0] + dx * k; Y = B[1] + dy * k; far = true;
+    }
+    if (Math.hypot(X - B[0], Y - B[1]) < 24) { const a = e.brg * M.DEG; X = B[0] + 26 * Math.sin(a); Y = B[1] - 26 * Math.cos(a); }
+    return [X, Y, far];
+  };
+  let g = '';
+  const smallScreen = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
+  const nice = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5].filter(v => v <= F.W * 0.5).pop(), sbw = nice / F.W * WP / 2;
+  g += `<g class="w-scale"><rect x="10" y="${WP - 44}" width="${(sbw + 20).toFixed(1)}" height="34" rx="3"/><path d="M20 ${WP - 24} v6 h${sbw.toFixed(1)} v-6"/><text x="${(20 + sbw / 2).toFixed(1)}" y="${WP - 28}" text-anchor="middle">${fmtD(nice)}</text></g>`;
+  g += `<g class="w-north" transform="translate(${WP - 26},32)"><path d="M0 -16 L7 6 L0 1 L-7 6 Z"/><text y="21" text-anchor="middle">N</text></g>`;
+  if (S.offset) {
+    const gx = kx(0), gy = ky(0);
+    g += `<line class="w-path" x1="${B[0].toFixed(1)}" y1="${B[1].toFixed(1)}" x2="${gx}" y2="${gy}" style="stroke:var(--ink-2)"/>`;
+    g += `<path class="w-ghost" d="M${gx - 7} ${gy} H${gx + 7} M${gx} ${gy - 7} V${gy + 7}"/><circle class="w-ghost" cx="${gx}" cy="${gy}" r="9"/>`;
+    g += `<text class="w-t small" x="${gx}" y="${gy + 24}" text-anchor="middle">${t('w_planned')}</text>`;
+  }
+  const sel = evals.find(x => x.tg.id === S.target);
+  if (sel) {
+    const [x, y] = pos(sel.e);
+    if (sel.e.routed) {
+      const d = smoothPath(M.pathTo(F, sel.e.cell)).map((p, i) => (i ? 'L' : 'M') + kx(p[0]).toFixed(1) + ' ' + ky(p[1]).toFixed(1)).join(' ');
+      g += `<path class="w-route-case" d="${d}"/><path class="w-route" d="${d}"/>`;
+    } else g += `<line class="w-path" x1="${B[0].toFixed(1)}" y1="${B[1].toFixed(1)}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+  }
+  g += `<rect class="w-base" x="${(B[0] - 6.5).toFixed(1)}" y="${(B[1] - 6.5).toFixed(1)}" width="13" height="13"/>`;
+  g += `<text class="w-t" x="${(B[0] + (B[0] > WP - 70 ? -12 : 12)).toFixed(1)}" y="${(B[1] + 18).toFixed(1)}" text-anchor="${B[0] > WP - 70 ? 'end' : 'start'}">${t('w_base')}</text>`;
+  for (const { tg, e } of evals) {
+    const [x, y, far] = pos(e), isSel = tg.id === S.target;
+    const name = L(SHORT[tg.id] || tg.name) + (far || isSel ? ' · ' + fmtD(e.d) : '');
+    const est = name.length * 7.1 * (smallScreen ? 1.55 : 1) + 14;
+    let anchor = x >= B[0] ? 'start' : 'end';
+    if (anchor === 'start' && x + est > WP - 4) anchor = 'end';
+    if (anchor === 'end' && x - est < 4) anchor = 'start';
+    const tx = anchor === 'start' ? x + 12 : x - 12;
+    g += `<g class="w-tg${isSel ? ' sel' : ''}" data-id="${tg.id}" tabindex="0" role="button" aria-label="${esc(L(tg.name) + ', ' + fmtD(e.d) + ', ' + t('v_' + e.verdict))}">` +
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="18" fill="transparent"/><circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13"/>` +
+      mark(e.verdict, +x.toFixed(1), +y.toFixed(1)) +
+      `<text class="w-t" x="${tx.toFixed(1)}" y="${(y + 4.5).toFixed(1)}" text-anchor="${anchor}">${esc(name)}</text></g>`;
+  }
+  const wm = $('#walkmap'); wm.innerHTML = g; wm.setAttribute('aria-label', L(s.name));
+  $$('#wlSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wl === S.wlayer)));
+  const E0 = M.EVA;
+  $('#terrKey').innerHTML = S.wlayer === 'time'
+    ? `<span class="legend-bar"><i style="background:linear-gradient(90deg,rgb(46,150,72),rgb(244,204,72) 31%,rgb(216,84,60) 62%,rgb(112,58,58))"></i>${t('tk_time', { lim: hm(M.limitH(c)) })}</span>`
+    : M.CLASSES.map(k => `<span><i style="background:rgb(${TCOL[k].join(',')})"></i>${t('terr_' + k)}${k === 'cliff' ? ': ' + t('tk_no') : ' ×' + nf(E0.terrain[k], E0.terrain[k] === 1 ? 0 : 2)}</span>`).join('');
+  $('#walkKey').innerHTML = `<span><i></i>${t(S.flare ? 'key_safe_flare' : 'key_safe', { km: nf(R.safe, 1), lim: hm(M.limitH(c)) })}</span><span><i class="plan"></i>${t('key_plan', { km: nf(R.plan, 1) })}</span><span class="small">${t('key_note')}</span>`;
+  $('#wmapNote').textContent = t('wmap_note');
+
+  /* what the switches mean */
+  const pre = [];
+  if (S.storm) pre.push(['amber', 'pre_storm']);
+  if (S.flare) pre.push(['violet', 'pre_flare']);
+  if (S.reactor) pre.push(['red', 'pre_reactor']);
+  if (S.offset) pre.push(['blue', 'pre_offset']);
+  $('#precedents').innerHTML = pre.length
+    ? pre.map(([cls, k]) => `<article class="${cls}"><h3>${t(k + '_t')}</h3><p>${t(k, { min: Math.round(M.EVA.flareWarnH * 60) })}</p></article>`).join('')
+    : `<article><p>${t('pre_none')}</p></article>`;
+
+  /* targets */
+  const chip = v => `<span class="vd ${v}"><i></i>${t('v_' + v)}</span>`;
+  $('#targets').innerHTML = evals.map(({ tg, e }) =>
+    `<button type="button" class="tg" data-id="${tg.id}" aria-pressed="${tg.id === S.target}"><b>${esc(L(tg.name))}${s.kind === 'orbital' ? `<span class="tag">${t('hypo')}</span>` : ''}</b>` +
+    `<small>${fmtD(e.d)} · ${t('terr_' + tg.terrain)}</small>${chip(e.verdict)}</button>`).join('');
+
+  /* detail */
+  if (!sel) { $('#detail').innerHTML = ''; return; }
+  const { tg, e } = sel, E = M.EVA;
+  const scale = Math.max(10, Math.ceil(e.total + 0.5)), pc = v => (100 * Math.min(v, scale) / scale).toFixed(2) + '%';
+  const seg = (cls, a, w, label) => w / scale > 0.004 ? `<div class="tl-seg ${cls}" style="left:${pc(a)};width:${pc(w)}">${w / scale > 0.11 ? label : ''}</div>` : '';
+  const tl = `<div class="tl"><div class="tl-track"></div>` +
+    seg('out', 0, e.tOut, t('tl_out')) + seg('work', e.tOut, e.work, t('tl_work')) + seg('back' + (S.storm ? ' storm' : ''), e.tOut + e.work, Math.min(e.tBack, scale - e.tOut - e.work), t('tl_back')) +
+    `<div class="tl-tick${E.suitH / scale > 0.6 ? ' far' : ''}" style="left:${pc(E.suitH)}"><span class="up">${E.suitH} ${t('u_h')}: ${t('tl_air')}</span></div>` +
+    `<div class="tl-tick res${(E.suitH + E.reserveH) / scale > 0.6 ? ' far' : ''}" style="left:${pc(E.suitH + E.reserveH)}"><span class="dn">${E.suitH + E.reserveH} ${t('u_h')}: ${t('tl_res')}</span></div></div>`;
+  const win = e.window;
+  const winTxt = win.hours > 0 ? t('d_window_v', { a: clock(win.open), b: clock(win.close), h: hm(win.hours) }) : t('d_window_none');
+  const flareBinds = S.flare && e.tSafe <= E.reserveH;
+  let vl = e.verdict === 'go' ? t('vl_go') : e.verdict === 'risk' ? t(flareBinds ? 'vl_risk_flare' : 'vl_risk', { min: Math.round(E.flareWarnH * 60) }) : !e.airOK ? t('vl_nogo_air') : t('vl_nogo_light');
+  if (e.verdict !== 'go') {
+    if (S.storm) vl += ' ' + t('why_storm');
+    if (!e.roverAvail) vl += ' ' + t(S.reactor ? 'why_reactor' : 'why_terrain');
+  }
+  $('#detail').innerHTML =
+    `<h3>${esc(L(tg.name))} ${chip(e.verdict)}</h3>${tl}` +
+    `<dl class="kv"><dt>${t('d_dist')}</dt><dd>${t(e.routed ? 'd_dist_v' : 'd_dist_line', { d: fmtD(e.d), p: fmtD(e.pathKm), terr: t('terr_' + tg.terrain), v: nf(e.v, 1) })}</dd>` +
+    `<dt>${t('d_time')}</dt><dd>${t('d_time_v', { t: hm(e.total), max: E.suitH })}</dd>` +
+    `<dt>${t('d_window')}</dt><dd>${winTxt}</dd>` +
+    `<dt>${t(S.flare ? 'd_fail_flare' : 'd_fail')}</dt><dd>${t(S.flare ? 'd_fail_v_flare' : 'd_fail_v', { t: hm(e.tSafe), how: t(e.how === 'rover' ? 'how_rover' : 'how_walk'), res: hm(e.limit) })}</dd></dl>` +
+    `<p class="verdict-line">${vl}</p>` +
+    `<div class="science"><h3>${t('sci_h')}</h3><p>${esc(L(tg.note))}</p></div>`;
+}
+
+/* ================= 3. ONE SOL ================= */
+const CH = { x0: 58, x1: 986, sky: [28, 88], temp: [126, 212], pow: [252, 338], sto: [378, 420], crew: [456, 482] };
+const cxh = h => CH.x0 + h / 24 * (CH.x1 - CH.x0);
+const yIn = (band, v, lo, hi) => band[1] - (v - lo) / (hi - lo) * (band[1] - band[0]);
+const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const rgb = c => `rgb(${c.map(v => Math.round(v)).join(',')})`;
+const skyColor = (el, tau) => {
+  const night = [16, 19, 28], dusk = [86, 122, 166], day = [219, 182, 141], murk = [58, 41, 29];
+  let c = el < -12 ? night : el < 0 ? mix(night, dusk, (el + 12) / 12) : el < 12 ? mix(dusk, day, el / 12) : day;
+  const k = Math.max(0, Math.min(1, (tau - 0.5) / 8));
+  return k > 0 ? mix(c, el > -6 ? murk : night, k * 0.93) : c;
+};
+let SOL = null;
+function renderSol() {
+  const s = site(), c = cond(), tau = M.tauOf(c);
+  $('#solSub').textContent = t('sol_sub', { site: L(s.name), ls: S.ls });
+  const sim = M.simulate(s, c, 30), step = 0.25, n = 97;
+  const hrs = Array.from({ length: n }, (_, i) => i * step);
+  const el = hrs.map(h => M.sunElev(s.lat, S.ls, h % 24));
+  const temp = hrs.map(h => M.tempAt(s, S.ls, h % 24, tau));
+  const pw = hrs.map(h => M.powerAt(s, c, h % 24));
+  const sto = hrs.map((h, i) => 100 * sim.series[Math.min(i, sim.series.length - 1)].store / sim.cap);
+  SOL = { hrs, el, temp, pw, sto, sim, tau };
+
+  let g = '';
+  const title = (band, key, extra) => `<text class="c-title" x="${CH.x0}" y="${band[0] - 9}">${t(key)}</text>${extra || ''}`;
+  const yAxis = (band, lo, hi, ticks) => ticks.map(v => `<line class="c-grid" x1="${CH.x0}" x2="${CH.x1}" y1="${yIn(band, v, lo, hi)}" y2="${yIn(band, v, lo, hi)}"/><text class="c-axis" x="${CH.x0 - 7}" y="${yIn(band, v, lo, hi) + 3.5}" text-anchor="end">${nf(v)}</text>`).join('');
+  const line = (band, arr, lo, hi) => arr.map((v, i) => (i ? 'L' : 'M') + cxh(hrs[i]).toFixed(1) + ' ' + yIn(band, Math.max(lo, Math.min(hi, v)), lo, hi).toFixed(1)).join(' ');
+
+  /* sky */
+  g += title(CH.sky, 'row_sky');
+  g += `<defs><linearGradient id="skyg" x1="0" x2="1" y1="0" y2="0">${hrs.map((h, i) => `<stop offset="${(h / 24).toFixed(4)}" stop-color="${rgb(skyColor(el[i], tau))}"/>`).join('')}</linearGradient></defs>`;
+  g += `<rect x="${CH.x0}" y="${CH.sky[0]}" width="${CH.x1 - CH.x0}" height="${CH.sky[1] - CH.sky[0]}" fill="url(#skyg)"/>`;
+  let sun = ''; let pen = false;
+  el.forEach((v, i) => { if (v > 0) { sun += (pen ? 'L' : 'M') + cxh(hrs[i]).toFixed(1) + ' ' + (CH.sky[1] - 3 - v / 90 * (CH.sky[1] - CH.sky[0] - 10)).toFixed(1) + ' '; pen = true; } else pen = false; });
+  if (sun) g += `<path d="${sun}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  const noon = Math.max(...el);
+  if (noon > 0) g += `<text class="c-axis" x="${cxh(12) + 12}" y="${Math.max(CH.sky[0] + 13, CH.sky[1] - 3 - noon / 90 * (CH.sky[1] - CH.sky[0] - 10) - 6).toFixed(1)}" style="fill:#fff">${nf(noon)}°</text>`;
+
+  /* temperature */
+  g += title(CH.temp, 'row_temp') + yAxis(CH.temp, -130, 10, [-120, -80, -40, 0]);
+  g += `<path class="c-line" d="${line(CH.temp, temp, -130, 10)}" stroke="var(--ink)"/>`;
+
+  /* power */
+  const lx = CH.x0 + (LANG === 'ru' ? 150 : 128);
+  g += title(CH.pow, 'row_power',
+    `<line x1="${lx}" x2="${lx + 18}" y1="${CH.pow[0] - 13}" y2="${CH.pow[0] - 13}" stroke="var(--plan)" stroke-width="2"/><text class="c-lab" x="${lx + 24}" y="${CH.pow[0] - 9}">${t('lg_gen')}</text>` +
+    `<line x1="${lx + 110}" x2="${lx + 128}" y1="${CH.pow[0] - 13}" y2="${CH.pow[0] - 13}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 3"/><text class="c-lab" x="${lx + 134}" y="${CH.pow[0] - 9}">${t('lg_load')}</text>`);
+  g += yAxis(CH.pow, 0, 100, [0, 25, 50, 75, 100]);
+  const gen = pw.map(p => p.gen);
+  g += `<path d="${line(CH.pow, gen, 0, 100)} L${CH.x1} ${CH.pow[1]} L${CH.x0} ${CH.pow[1]} Z" fill="var(--plan)" opacity=".1"/>`;
+  g += `<path class="c-line" d="${line(CH.pow, gen, 0, 100)}" stroke="var(--plan)"/>`;
+  g += `<path class="c-line" d="${line(CH.pow, pw.map(p => p.load), 0, 100)}" stroke="var(--ink)" stroke-dasharray="5 3"/>`;
+
+  /* storage */
+  g += title(CH.sto, 'row_store') + yAxis(CH.sto, 0, 100, [0, 100]);
+  g += `<path d="${line(CH.sto, sto, 0, 100)} L${CH.x1} ${CH.sto[1]} L${CH.x0} ${CH.sto[1]} Z" fill="var(--ink-2)" opacity=".1"/>`;
+  g += `<path class="c-line" d="${line(CH.sto, sto, 0, 100)}" stroke="var(--ink-2)"/>`;
+
+  /* crew */
+  g += title(CH.crew, 'row_crew');
+  const win = M.walkWindow(s.lat, S.ls);
+  const hasEva = !S.storm && !S.flare && !S.reactor && win.hours >= 2 && !win.st.polarNight;
+  let blocks;
+  if (S.reactor) blocks = [[0, 24, 'crew_emerg', '#F4C4BE', '#141A22']];
+  else {
+    blocks = [[0, 6.5, 'crew_sleep', '#2B3440', '#E6EAE4']];
+    if (hasEva) {
+      const open = Math.max(6.5, win.open), close = Math.min(19, win.close);
+      if (open > 6.5) blocks.push([6.5, open, 'crew_prep', '#CDD2CA', '#141A22']);
+      blocks.push([open, close, 'crew_eva', '#2A78D6', '#FFFFFF']);
+      if (close < 19) blocks.push([close, 19, 'crew_lab', '#DDE0D8', '#141A22']);
+    } else blocks.push([6.5, 19, S.flare && !S.storm ? 'crew_flare' : 'crew_shelter', S.flare && !S.storm ? '#DCCBFA' : '#DDE0D8', '#141A22']);
+    blocks.push([19, 20.5, 'crew_comm', '#AEBCCB', '#141A22'], [20.5, 22.5, 'crew_rest', '#DDE0D8', '#141A22'], [22.5, 24, 'crew_sleep', '#2B3440', '#E6EAE4']);
+  }
+  for (const [a, b, key, fill, ink] of blocks) {
+    const x = cxh(a), w = cxh(b) - cxh(a), label = t(key);
+    g += `<rect x="${(x + 1).toFixed(1)}" y="${CH.crew[0]}" width="${Math.max(0, w - 2).toFixed(1)}" height="${CH.crew[1] - CH.crew[0]}" rx="2" fill="${fill}"/>`;
+    if (w > label.length * 6.1 + 8) g += `<text class="crew-t" x="${(x + w / 2).toFixed(1)}" y="${CH.crew[0] + 17}" text-anchor="middle" fill="${ink}">${label}</text>`;
+  }
+  for (let h = 0; h <= 24; h += 3) g += `<line class="c-base" x1="${cxh(h)}" x2="${cxh(h)}" y1="${CH.crew[1] + 3}" y2="${CH.crew[1] + 8}"/><text class="c-axis" x="${cxh(h)}" y="${CH.crew[1] + 21}" text-anchor="middle">${h === 24 ? '24:00' : clock(h)}</text>`;
+
+  /* playhead */
+  g += `<g id="ph"><line class="c-play" id="phLine" y1="${CH.sky[0] - 4}" y2="${CH.crew[1] + 3}"/>` +
+    `<circle id="phSun" r="6" fill="#FFF1CF" stroke="#141A22" stroke-width="1.2"/>` +
+    `<circle class="c-dot" id="phTemp" r="5" fill="var(--ink)"/><circle class="c-dot" id="phGen" r="5" fill="var(--plan)"/><circle class="c-dot" id="phSto" r="5" fill="var(--ink-2)"/></g>`;
+  const svg = $('#solchart'); svg.innerHTML = g; svg.setAttribute('aria-label', t('s3') + ': ' + L(s.name));
+  renderProjection();
+  updatePlayhead();
+}
+const at = (arr, h) => { const x = Math.max(0, Math.min(96, h / 0.25)), i = Math.floor(x), k = x - i; return i >= 96 ? arr[96] : arr[i] + (arr[i + 1] - arr[i]) * k; };
+function logText(h) {
+  const s = site(), tau = SOL.tau, T = Math.round(at(SOL.temp, h)), tt = nf(T), win = M.walkWindow(s.lat, S.ls), st = win.st;
+  if (S.reactor) return t('log_reactor', { s: nf(at(SOL.sto, h)) });
+  if (st.polarNight) return t('log_polar', { t: tt });
+  const light = h > st.rise && h < st.set;
+  if (S.flare && !S.storm && h >= 6.5 && h < 19) return t('log_flare');
+  if (S.storm) return light ? t('log_storm', { pct: nf(100 * M.trans(tau) / M.trans(M.MARS.tauClear)) }) : t('log_storm_night', { t: tt });
+  if (h < st.rise - 0.4 || h >= 22.5) return T < -89.2 ? t('log_night_cold', { t: tt }) : t('log_night', { t: tt });
+  const hasEva = win.hours >= 2;
+  if (h < Math.max(st.rise + 0.8, hasEva ? win.open : 0)) return t('log_rise', { t: tt });
+  if (hasEva && h < win.close - 0.5) return t('log_eva', { b: clock(win.close), t: tt });
+  if (hasEva && h < st.set - 0.4) return t('log_close');
+  if (!hasEva && h < st.set - 0.4) return t('log_day_noeva', { t: tt });
+  if (h < st.set + 0.7) return t('log_set');
+  if (h < 20) return t('log_comm');
+  return t('log_evening', { t: tt });
+}
+function updatePlayhead() {
+  if (!SOL) return;
+  const h = S.hour, x = cxh(h).toFixed(1), el = at(SOL.el, h), T = at(SOL.temp, h), i = Math.min(96, Math.round(h / 0.25));
+  const gen = at(SOL.pw.map(p => p.gen), h), load = SOL.pw[i].load, sto = at(SOL.sto, h);
+  const ln = $('#phLine'); if (!ln) return;
+  ln.setAttribute('x1', x); ln.setAttribute('x2', x);
+  const sun = $('#phSun');
+  sun.setAttribute('cx', x); sun.setAttribute('cy', (CH.sky[1] - 3 - Math.max(0, el) / 90 * (CH.sky[1] - CH.sky[0] - 10)).toFixed(1));
+  sun.style.display = el > 0 ? '' : 'none'; sun.setAttribute('opacity', S.storm ? 0.45 : 1);
+  $('#phTemp').setAttribute('cx', x); $('#phTemp').setAttribute('cy', yIn(CH.temp, T, -130, 10).toFixed(1));
+  $('#phGen').setAttribute('cx', x); $('#phGen').setAttribute('cy', yIn(CH.pow, Math.min(100, gen), 0, 100).toFixed(1));
+  $('#phSto').setAttribute('cx', x); $('#phSto').setAttribute('cy', yIn(CH.sto, sto, 0, 100).toFixed(1));
+  $('#readout').innerHTML =
+    `<span>${t('r_time')} <b>${h >= 24 ? '24:00' : clock(h)}</b></span>` +
+    `<span>${t('r_sun')} <b>${el > 0 ? nf(el) + '°' : t('sun_below')}</b></span>` +
+    `<span>${t('r_temp')} <b>${nf(Math.round(T))} °C</b></span>` +
+    `<span>${t('r_gen')} <b>${nf(gen, 1)} ${t('u_kw')}</b></span>` +
+    `<span>${t('r_load')} <b>${nf(load)} ${t('u_kw')}</b></span>` +
+    `<span>${t('r_store')} <b>${nf(sto)} %</b></span>`;
+  $('#logline').textContent = logText(h);
+  const sc = $('#scrub'); if (document.activeElement !== sc) sc.value = h;
+  $('#play').textContent = t(S.playing ? 'pause' : 'play');
+}
+function renderProjection() {
+  const sim = SOL.sim, X0 = 46, X1 = 624, Y0 = 12, Y1 = 136;
+  const x = d => X0 + d / 30 * (X1 - X0), y = v => Y1 - v / 100 * (Y1 - Y0);
+  let g = '';
+  for (const v of [0, 50, 100]) g += `<line class="c-grid" x1="${X0}" x2="${X1}" y1="${y(v)}" y2="${y(v)}"/><text class="c-axis" x="${X0 - 7}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`;
+  for (let d = 0; d <= 30; d += 5) g += `<line class="c-base" x1="${x(d)}" x2="${x(d)}" y1="${Y1}" y2="${Y1 + 5}"/><text class="c-axis" x="${x(d)}" y="${Y1 + 18}" text-anchor="middle">${d}</text>`;
+  g += `<text class="c-axis" x="${X1}" y="${Y1 + 36}" text-anchor="end">${t(S.reactor ? 'proj_axis' : 'proj_axis_ok')}</text>`;
+  const pts = sim.series.filter((_, i) => i % 2 === 0).map(p => [x(p.sol - 1 + p.h / 24), y(100 * p.store / sim.cap)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  g += `<path d="${d} L${X1} ${Y1} L${X0} ${Y1} Z" fill="var(--ink-2)" opacity=".1"/><path class="c-line" d="${d}" stroke="var(--ink-2)"/>`;
+  const storm = S.storm ? M.STORMS[S.stormClass] : null;
+  if (storm && storm.sols < 30) g += `<line class="c-base" x1="${x(storm.sols)}" x2="${x(storm.sols)}" y1="${Y0}" y2="${Y1}" style="stroke:var(--ink-3)"/><text class="c-axis" x="${x(storm.sols) + 5}" y="${Y0 + 10}">${t('proj_storm_end')}</text>`;
+  let txt;
+  if (!S.reactor) txt = t(S.storm ? 'proj_ok_reactor_storm' : 'proj_ok_reactor');
+  else if (sim.blackout) {
+    const bx = x(sim.blackout.sol - 1 + sim.blackout.h / 24);
+    g += `<circle cx="${bx.toFixed(1)}" cy="${y(0)}" r="6" fill="var(--nogo)" stroke="var(--sheet)" stroke-width="2"/>` +
+      `<text class="c-title" x="${(bx + 10).toFixed(1)}" y="${y(0) - 9}">${t('proj_blackout')}</text>`;
+    txt = t('proj_dead', { sol: sim.blackout.sol, time: clock(sim.blackout.h) });
+  } else txt = t('proj_ok', { min: nf(100 * sim.min / sim.cap) });
+  const svg = $('#projchart'); svg.innerHTML = g; svg.setAttribute('aria-label', t('proj_title'));
+  $('#projText').textContent = txt;
+}
+let lastTs = 0;
+function tick(ts) {
+  if (!S.playing) return;
+  if (!lastTs) lastTs = ts;
+  S.hour += (ts - lastTs) / 1000 * 24 / 22; lastTs = ts;
+  if (S.hour >= 24) { S.hour = 24; S.playing = false; }
+  updatePlayhead();
+  if (S.playing) requestAnimationFrame(tick);
+}
+
+/* ================= 4. CROWD ================= */
+let resetArmed = false;
+function renderCrowd() {
+  const box = $('#crowdBody');
+  if (!S.revealed) { box.innerHTML = `<div class="panel locked"><p>${t('crowd_locked')}</p><a class="btn" href="#choose">${t('to_map')}</a></div>`; return; }
+  const total = Object.values(votes).reduce((a, b) => a + b, 0), maxV = Math.max(1, ...Object.values(votes));
+  let sum;
+  if (!total) sum = t('crowd_none');
+  else {
+    const top = [...RANK].sort((a, b) => (votes[b.site.id] || 0) - (votes[a.site.id] || 0))[0];
+    const v = { site: L(top.site.name), votes: votes[top.site.id], total, rank: top.rankWorst, n: SITES.length };
+    sum = top.rankWorst === 1 ? t('crowd_agree', v) : t('crowd_sum', v);
+  }
+  const rows = RANK.map(r => {
+    const d = r.rankNaive - r.rankWorst, v = votes[r.site.id] || 0;
+    const delta = d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : '';
+    return `<tr class="rowbtn${r.site.id === S.site ? ' cur' : ''}" data-id="${r.site.id}" tabindex="0">` +
+      `<td class="n">${r.rankWorst}</td>` +
+      `<td class="site"><b>${esc(L(r.site.name))}</b>${r.site.id === S.voted ? `<span class="tag">${t('mine')}</span>` : ''}${r.site.kind === 'orbital' ? `<small>${t('no_ground')}</small>` : ''}</td>` +
+      `<td><div class="hbar"><div class="track"><div class="fill" style="width:${r.worst.toFixed(0)}%"></div></div><span>${nf(r.worst)}</span></div></td>` +
+      `<td class="delta">${nf(r.naive)} · #${r.rankNaive} ${delta}</td>` +
+      `<td>${t('weak_' + r.weak)}</td>` +
+      `<td><div class="hbar"><div class="track"><div class="fill votes" style="width:${(100 * v / maxV).toFixed(0)}%;${v ? '' : 'min-width:0'}"></div></div><span>${v}</span></div></td></tr>`;
+  }).join('');
+  box.innerHTML = `<p class="crowd-sum">${esc(sum)}</p><div class="panel" style="padding:8px 12px"><div class="table-scroll"><table class="rank">` +
+    `<thead><tr><th>#</th><th>${t('col_site')}</th><th>${t('col_worst')}</th><th>${t('col_naive')}</th><th>${t('col_weak')}</th><th>${t('col_votes')}</th></tr></thead><tbody>${rows}</tbody></table></div></div>` +
+    `<p class="small muted" style="max-width:86ch;margin:12px 0 0">${t('naive_expl')}</p>` +
+    `<div class="crowd-actions"><button type="button" class="btn" id="nextVote">${t('btn_next_vote')}</button>` +
+    `<button type="button" class="btn ghost" id="resetVotes">${t(resetArmed ? 'btn_reset_sure' : 'btn_reset')}</button><span class="small muted">${t('votes_note')}</span></div>`;
+}
+
+/* ================= 5. METHOD ================= */
+function renderMethod() {
+  const B = M.BASE, E = M.EVA;
+  const items = [
+    t('a1', { crew: B.crew, r: B.reactorKW, ln: B.loadNominal, ls: B.loadSurvival }),
+    t('a2', { a: B.backupArea, eff: nf(B.eff * 100), st: B.storeKWh }),
+    t('a3', { n: B.repairSols }),
+    t('a4', { s: E.suitH, r: E.reserveH, w: nf(E.workH, 1) }),
+    t('a5', { p: nf(E.pace, 1) }),
+    t('a6', { v: E.roverKmh, d: Math.round(E.dispatchH * 60) }),
+    t('a7'), t('a8', { a: E.startAfterRise, b: E.endBeforeSet }),
+    t('a11', { min: Math.round(E.flareWarnH * 60) }), t('a12', { n: M.field(SITES[0], {}).N }), t('a9'), t('a10')
+  ];
+  $('#assume').innerHTML = items.map(x => `<li>${x}</li>`).join('');
+  $('#sources').innerHTML = SOURCES.map(([u, l]) => `<li><a href="${u}" target="_blank" rel="noopener">${esc(L(l))}</a></li>`).join('');
+}
+
+/* ================= glue ================= */
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $('#langRu').setAttribute('aria-pressed', String(LANG === 'ru'));
+  $('#langEn').setAttribute('aria-pressed', String(LANG === 'en'));
+  $$('#layerSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.layer === S.layer)));
+}
+function renderConditions() { renderConsole(); drawOverlay(); renderMapSvg(); renderMapFoot(); renderSite(); renderWalk(); renderSol(); }
+function renderAll() { applyStatic(); renderChoose(); renderConditions(); renderCrowd(); renderMethod(); }
+
+const onKeyActivate = fn => e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(e); } };
+function wire() {
+  $('#langRu').addEventListener('click', () => { LANG = 'ru'; mem.set('ws.lang', LANG); renderAll(); });
+  $('#langEn').addEventListener('click', () => { LANG = 'en'; mem.set('ws.lang', LANG); renderAll(); });
+  $('#layerSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.layer = b.dataset.layer; applyStatic(); drawOverlay(); renderMapSvg(); renderMapFoot(); });
+  $('#baseSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setBase(b.dataset.base); });
+  const mapPick = e => { const g = e.target.closest('.mk'); if (g) pick(g.dataset.id, true); };
+  $('#mapsvg').addEventListener('click', mapPick);
+  $('#mapsvg').addEventListener('keydown', onKeyActivate(mapPick));
+  $('#chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) pick(b.dataset.id, true); });
+  $('#voteRow').addEventListener('click', e => { if (e.target.id === 'skipVote') { S.revealed = true; renderAll(); } });
+  $('#siteSelect').addEventListener('change', e => pick(e.target.value, false));
+  $('#lampStorm').addEventListener('click', () => { S.storm = !S.storm; renderConditions(); });
+  $('#lampReactor').addEventListener('click', () => { S.reactor = !S.reactor; renderConditions(); });
+  $('#lampFlare').addEventListener('click', () => { S.flare = !S.flare; renderConditions(); });
+  $('#wlSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.wlayer = b.dataset.wl; renderWalk(); });
+  $('#lampOffset').addEventListener('click', () => { S.offset = !S.offset; renderConditions(); });
+  $('#stormClass').addEventListener('change', e => { S.stormClass = e.target.value; S.storm = true; renderConditions(); });
+  $('#offsetKm').addEventListener('input', e => { S.offsetKm = +e.target.value; S.offset = true; renderConditions(); });
+  $('#offsetDir').addEventListener('click', () => { S.offsetBrg = (S.offsetBrg + 67) % 360; S.offset = true; renderConditions(); });
+  $('#ls').addEventListener('input', e => { S.ls = +e.target.value; renderConditions(); });
+  $('#worstSeason').addEventListener('click', () => { S.ls = M.extremeLs(site().lat).worst; renderConditions(); });
+  const tgPick = e => { const g = e.target.closest('[data-id]'); if (g) { S.target = g.dataset.id; renderWalk(); } };
+  $('#walkmap').addEventListener('click', tgPick);
+  $('#walkmap').addEventListener('keydown', onKeyActivate(tgPick));
+  $('#targets').addEventListener('click', tgPick);
+  $('#play').addEventListener('click', () => {
+    S.playing = !S.playing;
+    if (S.playing) { if (S.hour >= 24) S.hour = 0; lastTs = 0; requestAnimationFrame(tick); }
+    updatePlayhead();
+  });
+  $('#scrub').addEventListener('input', e => { S.playing = false; S.hour = +e.target.value; updatePlayhead(); });
+  const crowd = $('#crowdBody');
+  crowd.addEventListener('click', e => {
+    if (e.target.id === 'nextVote') { S.voted = null; S.revealed = false; resetArmed = false; renderAll(); $('#choose').scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth' }); return; }
+    if (e.target.id === 'resetVotes') {
+      if (resetArmed) { votes = {}; mem.set('ws.votes', votes); S.voted = null; resetArmed = false; renderChoose(); renderMapSvg(); } else resetArmed = true;
+      renderCrowd(); return;
+    }
+    const tr = e.target.closest('tr.rowbtn'); if (tr) { pick(tr.dataset.id, false); $('#site').scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth' }); }
+  });
+  crowd.addEventListener('keydown', onKeyActivate(e => { const tr = e.target.closest('tr.rowbtn'); if (tr) { pick(tr.dataset.id, false); $('#site').scrollIntoView(); } }));
+}
+
+wire();
+renderAll();
+requestAnimationFrame(() => { buildRelief(); probeTiles(); });
+})();
+</script>
+</body>
+</html>
