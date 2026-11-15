@@ -2,10 +2,10 @@
 
 **A survival map for the first walks on Mars.** Worst Sol tests a base site, and every walk from it, against its worst day instead of its average one, so a crew knows how far it can go and still get back.
 
-**Live demo:** [https://YOUR-NAME.github.io/worst-sol/](https://YOUR-NAME.github.io/worst-sol/)
+**Live demo:** [https://kutya234.github.io/worst-sol/](https://kutya234.github.io/worst-sol/)
 
 Built for the **NASA Space Apps Challenge 2026**, challenge *Interplanetary Survival Guide: Martian Map*.
-Top 15 at [Local Event name].
+Top 15 at [NASA Space Apps Challenge Bishkek 2026].
 
 ![Route map at Gale Crater with the solar flare test on](screenshots/route-map-gale.png)
 
@@ -102,20 +102,9 @@ Claude (Anthropic) was used for ideation, research, writing and debugging code, 
 It is a single HTML file with no build step and no backend.
 
 ```
-git clone https://github.com/YOUR-NAME/worst-sol.git
+git clone https://github.com/kutya234/worst-sol.git
 ```
 
 Then open `index.html` in any browser. Without internet the global map falls back to a schematic relief; everything else works. Available in English and Russian.
-
-## Team
-
-| Name | Role |
-|---|---|
-| [Name] | Team Lead |
-| [Name] | [Role] |
-| [Name] | [Role] |
-| [Name] | [Role] |
-
----
 
 *Not affiliated with or endorsed by NASA. NASA data is used under NASA's open data policy.*
